@@ -15,19 +15,19 @@ int** createRandomMatrix(unsigned height, unsigned width, bool invertible)
       if(invertible && height != width) //invertible matrix must be square
       	return 0;
 
-      for (int h = 0; h < height; h++){
+      for (int h = 0, c = 0; h < height; h++, c=0){
             m[h] = new int[width];
 
             if(invertible){ 
             	//diagonally dominant
-            	for (int w = 0, c = 0; w < width; w++, c=0)
+            	for (int w = 0; w < width; w++)
             		if(w!=h){
             			x = rand()%1000 - 500;
             			c+=abs(x);
             			m[h][w] = x;	
             		}
             	
-            	m[h][h] = rand()%1000 + c;
+            	m[h][h] = rand()%100 + c;
 
             } else
             	for (int w = 0; w < width; w++)
