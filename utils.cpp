@@ -20,15 +20,14 @@ int** createRandomMatrix(unsigned height, unsigned width, bool invertible)
 
             if(invertible){ 
             	//diagonally dominant
-            	for (int w = 0, c = 0; w < width; w++)
+            	for (int w = 0, c = 0; w < width; w++, c=0)
             		if(w!=h){
             			x = rand()%1000 - 500;
             			c+=abs(x);
             			m[h][w] = x;	
             		}
             	
-            	m[h][h] = rand() + c;
-            	c=0;
+            	m[h][h] = rand()%1000 + c;
 
             } else
             	for (int w = 0; w < width; w++)
