@@ -22,7 +22,7 @@ int** createRandomMatrix(unsigned height, unsigned width, bool invertible)
             	//diagonally dominant
             	for (int w = 0, c = 0; w < width; w++)
             		if(w!=h){
-            			x = rand() - RAND_MAX/2;
+            			x = rand()%1000 - 500;
             			c+=abs(x);
             			m[h][w] = x;	
             		}
@@ -32,7 +32,7 @@ int** createRandomMatrix(unsigned height, unsigned width, bool invertible)
 
             } else
             	for (int w = 0; w < width; w++)
-                	m[h][w] = rand() - RAND_MAX/2;
+                	m[h][w] = rand()%1000 - 500;
       }
 
       return m;
