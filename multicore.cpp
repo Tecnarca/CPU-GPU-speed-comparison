@@ -2,7 +2,7 @@
 #include <pthread.h>
 #include <chrono>
 #include <cstring>
-#define DEBUG 1
+#define DEBUG 0
 #define MIN(a, b) (((a) > (b)) ? (b) : (a))
 
 using namespace std;
@@ -17,17 +17,17 @@ extern void print_matrix(double**, unsigned, char*);
 extern int** createEmpyMatrix(unsigned);
 
 
-int **A, **B, **C; 
-double **D;
+int **A, **B, **C; //dopo moltiplicazione, C = A*B
+double **D, **M; //dopo inversione, M = I && D = A^-1
 unsigned dim;
+int thread_number; // ToDo: controllare se il numero è migliorabile
+
+static pthread_barrier_t barrier;
 
 struct coord{
 	int x;
 	int y;
-	int p;
-	bool sup;
 };
-
 
 int main(int argc, char **argv){
 
@@ -35,7 +35,6 @@ int main(int argc, char **argv){
 	chrono::high_resolution_clock::time_point start, finish;
 	chrono::duration<double> elapsed;
 	pthread_t* threads;
-	int thread_number; // ToDo: controllare se il numero è migliorabile
 	coord* params;
 
 	//ToDo(?) si puo' mettere il path del file da salvare come argomento di input
@@ -60,11 +59,8 @@ int main(int argc, char **argv){
 		D = createIdentityMatrix(dim);
 
 		if(DEBUG){
-    		print_matrix(A,n,"A ");
-  		}
-
-  		if(DEBUG){
-    		print_matrix(B,n,"B ");
+    		print_matrix(A,dim,"A ");
+    		print_matrix(B,dim,"B ");
   		}
 
 		start = chrono::high_resolution_clock::now(); //start time measure
@@ -96,42 +92,36 @@ int main(int argc, char **argv){
 		cout << "MUL: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
 		//elapsed.count() restituisce il tempo in secondi
 
+      	M = new double*[dim];
+
+      	for (int h = 0; h < dim; h++){
+        	M[h] = new double[dim];
+        	for (int w = 0; w < dim; w++)
+                	M[h][w] = A[h][w];
+      	}
+
 		start = chrono::high_resolution_clock::now(); //start time measure
 
 		//----------------------MULTITHREAD CODE----------------------
 
-		for(int i=0; i<thread_number; i++){
-			params[i].x = i*dim/thread_number; //what row we start reducing
-			params[i].y = MIN((i+1)*dim/thread_number,dim); //whatrow we stop reducing
-			params[i].p = i;
-			params[i].sup = true;
+		pthread_barrier_init(&barrier, NULL, thread_number);
+
+		for(int i=0; i<thread_number; i++){ //one thread per column. This simplifies the algorithm greatly
+			params[i].x = i; //what column we reduce
 			pthread_create(&threads[i],NULL,thread_mat_inv,(void*)&params[i]);
 		}
 
 		for (int i=0; i<thread_number; i++) {
  		   pthread_join( threads[i],NULL);
 		}
-		
-		if(DEBUG){
-			print_matrix(A,dim,"A ");
-    		print_matrix(D,dim,"D ");
-  		}
-		
-		for(int i=0; i<thread_number; i++){
-			params[i].sup = false;
-			pthread_create(&threads[i],NULL,thread_mat_inv,(void*)&params[i]);
-		}
 
-		for (int i=0; i<thread_number; i++) {
- 		   pthread_join( threads[i],NULL);
-		}
-		
 		//----------------------MULTITHREAD CODE----------------------
 
 		finish = chrono::high_resolution_clock::now(); //end time measure
 		
 		if(DEBUG){
-    		print_matrix(D,dim,"DIAG ");
+    		print_matrix(D,dim,"D ");
+    		print_matrix(M,dim,"M ");
   		}
 
 		elapsed = finish - start; //compute time difference
@@ -145,6 +135,7 @@ int main(int argc, char **argv){
 		free(B);
 		free(C);
 		free(D);
+		free(M);
 	}
 	
 	return 0;
@@ -166,11 +157,32 @@ void* thread_mat_mul(void* params) {
 
 void* thread_mat_inv(void* params) {
 	coord *v = (coord*)params;
-	int p = params.p; //indice del pivot
-	if(v->sup){
-		//riduci a triangolare superiore
-	} else {
-		//riduci a diagonale e scala
+	int div;
+	//riduci a triangolare superiore
+	for(int z=0; z<2; z++){
+		for(int k=0; k<dim; k++){ //foreach row
+			pthread_barrier_wait(&barrier); //sinchro point
+			div = M[k][k];
+			for(int j=k+v->x; j<dim; j+=thread_number){ //foreach thread column
+				M[k][j] /= div;
+				D[k][j] /= div;
+				for(int i=k+1;i<dim;i++){
+					M[i][j] -= M[i][k]*M[k][j];
+					D[i][j] -= M[i][k]*D[k][j];
+				}
+			}
+		}
+
+		//trasponi le matrici M e D
+		for(int i=0;i<dim-1;i+=thread_number){
+			M[i][i] = 1;
+			for(int j=i+1; j<dim; j++){
+				M[i][j]= 0;
+				swap(M[i][j],M[j][i]);
+				swap(D[i][j],D[j][i]);
+			}
+		}
 	}
+
 	pthread_exit((void*)0);
 }

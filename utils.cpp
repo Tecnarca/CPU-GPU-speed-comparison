@@ -2,7 +2,7 @@
 #include <ctime>
 #include <cstdlib>
 #include <cmath>
-#define R_MAX 1000
+#define R_MAX 20
 
 using namespace std;
 
