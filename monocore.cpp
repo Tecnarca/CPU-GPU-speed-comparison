@@ -7,11 +7,13 @@ using namespace std;
 
 
 extern int** createRandomMatrix(unsigned, unsigned, bool);
+extern double** createIdentityMatrix(unsigned);
+extern int** createEmpyMatrix(unsigned);
 extern void print_matrix(int**, unsigned, char*);
 extern void print_matrix(double**, unsigned, char*);
 
-double** mat_inv(int**, unsigned);
-int** mat_mul(int**, int**, unsigned);
+void mat_inv(double**, double**, unsigned);
+void mat_mul(int**, int**, int**, unsigned);
 
 int main(int argc, char **argv){
 
@@ -20,7 +22,7 @@ int main(int argc, char **argv){
 	chrono::high_resolution_clock::time_point start, finish;
 	chrono::duration<double> elapsed;
 	int **A, **B, **C;
-  double **D;
+  double **D, **M;
     
 	//ToDo(?) si puo' mettere il path del file da salvare come argomento di input
 	if(argc != 4){
@@ -38,33 +40,36 @@ int main(int argc, char **argv){
 		//ToDo: parallelizzare anche questa funzione (?)
 		A = createRandomMatrix(dim, dim, true); // true means "invertible"
 		B = createRandomMatrix(dim, dim, false); // false means "not invertible"
+    C = createEmpyMatrix(dim);
+    D = createIdentityMatrix(dim);
+
+    M = new double*[dim];
+
+    for (int h = 0; h < dim; h++){
+      M[h] = new double[dim];
+      for (int w = 0; w < dim; w++)
+        M[h][w] = A[h][w];
+    }
+
+    if(DEBUG){
+      print_matrix(A,dim,"A ");
+      print_matrix(B,dim,"B ");
+    }
 
 		start = chrono::high_resolution_clock::now(); //start time measure
 
 		//----------------------CRITICAL CODE----------------------
 
-		D = (double**)mat_inv(A,dim); //Inverto A
+    mat_mul(A,B,C,dim); //Moltiplico C = A*B
 
 		//----------------------CRITICAL CODE----------------------
 
 		finish = chrono::high_resolution_clock::now(); //end time measure
 
-		elapsed = finish - start; //compute time difference
-
-		//ToDo: output to file instead of console
-		//format of the output to file: DECIDE CHI USA MATPLOTLIB
-		cout << "INV: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
-		//elapsed.count() restituisce il tempo in secondi
-
-		start = chrono::high_resolution_clock::now(); //start time measure
-
-		//----------------------CRITICAL CODE----------------------
-		
-		C = (int**)mat_mul(A,B,dim); //Moltiplico A*B, 
-
-		//----------------------CRITICAL CODE----------------------
-
-		finish = chrono::high_resolution_clock::now(); //end time measure
+    if(DEBUG){
+      
+      print_matrix(C,dim,"C ");
+    }
 
 		elapsed = finish - start; //compute time difference
 
@@ -72,105 +77,73 @@ int main(int argc, char **argv){
 		//format of the output to file: DECIDE CHI USA MATPLOTLIB
 		cout << "MUL: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
 		//elapsed.count() restituisce il tempo in secondi
+
+		start = chrono::high_resolution_clock::now(); //start time measure
+
+		//----------------------CRITICAL CODE----------------------
+		
+		mat_inv(M,D,dim); //Inverto M=A e metto il risultato in D
+
+		//----------------------CRITICAL CODE----------------------
+
+		finish = chrono::high_resolution_clock::now(); //end time measure
+
+
+    if(DEBUG){
+      print_matrix(M,dim,"M ");
+      print_matrix(D,dim,"D ");
+    }
+
+		elapsed = finish - start; //compute time difference
+
+		//ToDo: output to file instead of console
+		//format of the output to file: DECIDE CHI USA MATPLOTLIB
+		cout << "INV: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
+		//elapsed.count() restituisce il tempo in secondi
 	
 		free(A);
 		free(B);
 		free(C);
 		free(D);
+    free(M);
 	}
 	
 	return 0;
 }
 
 //INVERSIONE
-double** mat_inv(int **A,unsigned n){
-  double **I;
-  I=new double*[n];
-  for(int i=0;i<n;i++) I[i]=new double[n];
-  // *** Popolazione della matrice identità  *** //
-  for(int i=0;i<n;i++)
-    for(int j=0;j<n;j++)
-      if(i==j) I[i][j] = 1;
-      else I[i][j]=0;
-
-  if(DEBUG){
-    print_matrix(A,n,"A ");
-  }
-
-  // *** Costruzione della matrice [A|I] *** //
-  double **B;
-  B=new double*[n];
-  for(int i=0;i<n;i++) B[i]=new double[2*n];
-
-  for(int i=0;i<n;i++)
-    for(int j=0;j<n;j++)
-      B[i][j]=A[i][j];
-
-  int k=0;
-  for(int i=0;i<n;i++) {
-    for(int j=n;j<2*n;j++,k++)
-      B[i][j]=I[i][k];
-    k=0;
-  }
-
-  // *** Eliminazione sotto la diagonale principale *** //
-  double *tmp; tmp=new double[2*n];
-  for(int j=0;j<n-1;j++)
-    for(int i=j+1;i<n;i++)
-      if(B[i][j]!=0) {
-        double mol=B[i][j]/B[j][j];
-        for(int k=0;k<2*n;k++) tmp[k]=mol*B[j][k];
-        for(int k=0;k<2*n;k++) B[i][k]-=tmp[k];
+void mat_inv(double **M, double **D, unsigned dim){
+  double p;
+  for(int z=0; z<2; z++){
+    //riduci a triangolare superiore
+    for(int k=0; k<dim; k++){ //foreach row
+      p = M[k][k];
+      for(int j=k; j<dim; j++){ //foreach thread column
+        M[k][j] = M[k][j]/p;
+        D[k][j] = D[k][j]/p;
+        for(int i=k+1;i<dim;i++){
+          M[i][j] -= M[i][k]*M[k][j];
+          D[i][j] -= M[i][k]*D[k][j];
+        }
       }
-
-  // *** Eliminazione sopra la diagonale principale *** //
-  for(int j=n-1;j>0;j--)
-    for(int i=j-1;i>=0;i--)
-      if(B[i][j]!=0) {
-        double mol=B[i][j]/B[j][j];
-        for(int k=0;k<2*n;k++) tmp[k]=mol*B[j][k];
-        for(int k=0;k<2*n;k++) B[i][k]-=tmp[k];
-      }
-
-  // *** Ultimo step per ottenere la matrice a blocchi [I|A] *** //
-  for(int i=0;i<n;i++)
-    if(B[i][i]!=1) {
-      double mol=B[i][i];
-      for(int k=0;k<2*n;k++)
-        B[i][k]=B[i][k]/mol;
     }
 
-  // *** Copia dell'inversa ottenuta *** //
-  double** Inv;
-  Inv=new double*[n];
-  for(int i=0;i<n;i++) Inv[i]=new double[n];
-  k=0;
-  for(int i=0;i<n;i++) {
-    for(int j=n;j<2*n;j++,k++)
-      Inv[i][k]=B[i][j];
-    k=0;
+    //trasponi le matrici M e D
+    for(int i=0;i<dim-1;i++){
+      M[i][i] = 1;
+      for(int j=i+1; j<dim; j++){
+        M[i][j]= 0;
+        swap(M[i][j],M[j][i]);
+        swap(D[i][j],D[j][i]);
+      }
+    }
   }
 
-  if(DEBUG){
-    print_matrix(Inv,n,"INVERSA ");
-  }
-
-  return Inv;
+  return;
 }
 
 //MOLTIPLICAZIONE
-int** mat_mul(int **A,int **B,unsigned n){
-  int **prodotto = new int*[n];
-  for(int i=0;i<n;i++) prodotto[i]=new int[n];
-
-  if(DEBUG){
-    print_matrix(A,n,"A ");
-  }
-
-  if(DEBUG){
-    print_matrix(B,n,"B ");
-  }
-
+void mat_mul(int **A,int **B, int** prodotto, unsigned n){
     // *** Moltiplicazione Tra Matrice A*** e B*** //  
   int i,j,k;
   for (i = 0; i < n; i++) {
@@ -182,9 +155,5 @@ int** mat_mul(int **A,int **B,unsigned n){
     }
   }
 
-  if(DEBUG){
-    print_matrix(prodotto,n,"PRODOTTO ");
-  }
-
-  return prodotto;
+  return;
 }

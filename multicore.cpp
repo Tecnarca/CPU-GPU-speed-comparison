@@ -157,15 +157,16 @@ void* thread_mat_mul(void* params) {
 
 void* thread_mat_inv(void* params) {
 	coord *v = (coord*)params;
-	int div;
-	//riduci a triangolare superiore
+	double p;
+
 	for(int z=0; z<2; z++){
+		//riduci a triangolare superiore
 		for(int k=0; k<dim; k++){ //foreach row
 			pthread_barrier_wait(&barrier); //sinchro point
-			div = M[k][k];
+			p = M[k][k];
 			for(int j=k+v->x; j<dim; j+=thread_number){ //foreach thread column
-				M[k][j] /= div;
-				D[k][j] /= div;
+				M[k][j] /= p;
+				D[k][j] /= p;
 				for(int i=k+1;i<dim;i++){
 					M[i][j] -= M[i][k]*M[k][j];
 					D[i][j] -= M[i][k]*D[k][j];
