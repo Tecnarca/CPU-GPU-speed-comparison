@@ -146,6 +146,8 @@ int main(int argc, char **argv){
             cout << cudaGetErrorString(status) << " in " << __FILE__ << " at line " << __LINE__ << endl;
         }
 
+        cudaDeviceSynchronize();
+
         //----------------------CUDA CHARGE CODE----------------------
 
         finish = chrono::high_resolution_clock::now(); //end time measure
@@ -179,6 +181,8 @@ int main(int argc, char **argv){
         if(status!=cudaSuccess){
             cout << cudaGetErrorString(status) << " in " << __FILE__ << " at line " << __LINE__ << endl;
         }
+
+        cudaDeviceSynchronize();
 
         //----------------------CUDA DISCHARGE CODE----------------------
 
@@ -241,6 +245,8 @@ int main(int argc, char **argv){
             cout << cudaGetErrorString(status) << " in " << __FILE__ << " at line " << __LINE__ << endl;
         }
 
+        cudaDeviceSynchronize();
+
         //----------------------CUDA CHARGE CODE----------------------
 
         finish = chrono::high_resolution_clock::now(); //end time measure
@@ -283,6 +289,8 @@ int main(int argc, char **argv){
         if(status!=cudaSuccess){
             cout << cudaGetErrorString(status) << " in " << __FILE__ << " at line " << __LINE__ << endl;
         }
+
+        cudaDeviceSynchronize();
 
         //----------------------CUDA DISCHARGE CODE----------------------
 
