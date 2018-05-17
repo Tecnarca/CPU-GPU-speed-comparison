@@ -57,7 +57,6 @@ int** createEmpyMatrix(unsigned dim){
 
       for (int h = 0; h < dim; h++){
         m[h] = new int[dim];
-        m[h][h] = 1;
       }
       return m;
 }
@@ -77,6 +76,73 @@ void print_matrix(double** A, unsigned n, char* s){
   for(int i=0;i<n;i++){
       for(int j=0;j<n;j++)
         cout << A[i][j] << "\t";
+      cout << endl;
+  }
+  cout << "*********************\n\n"; 
+}
+
+int* createRandomMatrixArray(unsigned height, unsigned width, bool invertible){
+      int* m = 0;
+      int x, c;
+      m = new int[height*width];
+      srand (time(NULL));
+
+      if(invertible && height != width) //invertible matrix must be square
+        return 0;
+
+      for (int h = 0, c = 0; h < height; h++, c=0){
+
+            if(invertible){ 
+              //diagonally dominant == surely invertible
+              for (int w = 0; w < width; w++)
+                if(w!=h){
+                  x = rand()%R_MAX - R_MAX/2;
+                  c+=abs(x);
+                  m[h*height+w] = x;  
+                }
+              
+              m[h*(height+1)] = rand()%(R_MAX/10) + c;
+
+            } else
+              for (int w = 0; w < width; w++)
+                  m[h*height+w] = rand()%R_MAX - R_MAX/2;
+      }
+
+      return m;
+}
+
+double* createIdentityMatrixArray(unsigned dim){
+      double* m = 0;
+      m = new double[dim*dim];
+
+      for (int h = 0; h < dim; h++){
+        m[h*(dim+1)] = 1;
+      }
+
+      return m;
+}
+
+int* createEmpyMatrixArray(unsigned dim){
+      int* m = 0;
+      m = new int[dim*dim];
+      return m;
+}
+
+void print_array_as_matrix(int* A, unsigned n, char* s){
+  cout << "\n***** MATRICE " << s << "******\n\n";
+  for(int i=0;i<n;i++){
+      for(int j=0;j<n;j++)
+        cout << A[i*n+j] << "\t";
+      cout << endl;
+  }
+  cout << "*********************\n\n"; 
+}
+
+void print_array_as_matrix(double* A, unsigned n, char* s){
+  cout << "\n***** MATRICE " << s << "******\n\n";
+  for(int i=0;i<n;i++){
+      for(int j=0;j<n;j++)
+        cout << A[i*n+j] << "\t";
       cout << endl;
   }
   cout << "*********************\n\n"; 
