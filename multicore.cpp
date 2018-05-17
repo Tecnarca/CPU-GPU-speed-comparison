@@ -178,7 +178,7 @@ void* thread_mat_inv(void* params) {
 		for(int i=0;i<dim-1;i+=thread_number){
 			M[i][i] = 1;
 			for(int j=i+1; j<dim; j++){
-				M[i][j]= 0;
+				M[i][j] = 0;
 				swap(M[i][j],M[j][i]);
 				swap(D[i][j],D[j][i]);
 			}

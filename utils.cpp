@@ -29,7 +29,7 @@ int** createRandomMatrix(unsigned height, unsigned width, bool invertible){
             			m[h][w] = x;	
             		}
             	
-            	m[h][h] = rand()%(R_MAX/10) + c;
+            	m[h][h] = rand()%(R_MAX/10) + c + 1;
 
             } else
             	for (int w = 0; w < width; w++)
@@ -57,6 +57,9 @@ int** createEmpyMatrix(unsigned dim){
 
       for (int h = 0; h < dim; h++){
         m[h] = new int[dim];
+        for(int l = 0; l < dim; l++){
+          m[h][l] = 0;
+        }
       }
       return m;
 }
@@ -101,7 +104,7 @@ int* createRandomMatrixArray(unsigned height, unsigned width, bool invertible){
                   m[h*height+w] = x;  
                 }
               
-              m[h*(height+1)] = rand()%(R_MAX/10) + c;
+              m[h*(height+1)] = rand()%(R_MAX/10) + c + 1;
 
             } else
               for (int w = 0; w < width; w++)
@@ -125,6 +128,10 @@ double* createIdentityMatrixArray(unsigned dim){
 int* createEmpyMatrixArray(unsigned dim){
       int* m = 0;
       m = new int[dim*dim];
+      for (int h = 0; h < dim; h++){
+        for(int j = 0; j < dim; j++)
+          m[h*dim+j] = 0;
+      }
       return m;
 }
 
@@ -139,6 +146,16 @@ void print_array_as_matrix(int* A, unsigned n, char* s){
 }
 
 void print_array_as_matrix(double* A, unsigned n, char* s){
+  cout << "\n***** MATRICE " << s << "******\n\n";
+  for(int i=0;i<n;i++){
+      for(int j=0;j<n;j++)
+        cout << A[i*n+j] << "\t";
+      cout << endl;
+  }
+  cout << "*********************\n\n"; 
+}
+
+void print_array_as_matrix(float* A, unsigned n, char* s){
   cout << "\n***** MATRICE " << s << "******\n\n";
   for(int i=0;i<n;i++){
       for(int j=0;j<n;j++)

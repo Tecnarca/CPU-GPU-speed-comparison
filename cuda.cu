@@ -99,9 +99,9 @@ int main(int argc, char **argv){
 
         dim3 threadsPerBlock(dim, dim);
         dim3 blocksPerGrid(1, 1);
-        if (dim*dim > 512){ //total amount of threads in a single block cannot exceed 1024
-            threadsPerBlock.x = 512; 
-            threadsPerBlock.y = 512;
+        if (dim*dim > 832){ //total amount of threads in a single block cannot exceed 1024
+            threadsPerBlock.x = 832; 
+            threadsPerBlock.y = 832;
             blocksPerGrid.x = ceil(double(dim)/double(threadsPerBlock.x));
             blocksPerGrid.y = ceil(double(dim)/double(threadsPerBlock.y));
         }
@@ -228,7 +228,7 @@ int main(int argc, char **argv){
             cout << cudaGetErrorString(status) << " in " << __FILE__ << " at line " << __LINE__ << endl;
         }
 
-        status = cudaMemcpy(gpu_inv_I, D, data_size, cudaMemcpyHostToDevice);
+        start = chrono::high_resolution_clock::now(); //start time measure
 
         //----------------------CUDA CHARGE CODE----------------------
         //si basa sul fatto che i caricamenti sono sincroni, mentre l'esecuzione parallela no        
@@ -239,7 +239,7 @@ int main(int argc, char **argv){
             cout << cudaGetErrorString(status) << " in " << __FILE__ << " at line " << __LINE__ << endl;
         }
 
-        start = chrono::high_resolution_clock::now(); //start time measure
+        status = cudaMemcpy(gpu_inv_I, D, data_size, cudaMemcpyHostToDevice);
 
         if(status!=cudaSuccess){
             cout << cudaGetErrorString(status) << " in " << __FILE__ << " at line " << __LINE__ << endl;
