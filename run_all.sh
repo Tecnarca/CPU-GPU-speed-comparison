@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # $1 == smaller matrix size, $2 == biggest matrix size, $3 == step of the matrix size
+# programs must be in the "bin" subdirectory
 
 rm -rf csv/ #remove old csv files
 mkdir csv/
