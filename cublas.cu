@@ -4,7 +4,6 @@
 #include <cusolverDn.h>
 #include <cublas_v2.h>
 #include <iostream>
-#include <chrono>
 #include <cstring>
 #include <cmath>
 #define DEBUG 0
@@ -12,9 +11,10 @@
 using namespace std;
 
 //ToDo: includere utils tramite utils.h
-extern void print_array_as_matrix(int*, unsigned, char*);
-extern void print_array_as_matrix(float*, unsigned, char*);
-extern int* createRandomMatrixArray(unsigned, unsigned, bool);
+extern void print_array_as_matrix(int*, long, char*);
+extern void print_array_as_matrix(float*, long, char*);
+extern int* createRandomMatrixArray(long, long, bool);
+extern void saveTimeToFile(long, double, char*);
 
 int main(int argc, char **argv){
 
@@ -24,12 +24,10 @@ int main(int argc, char **argv){
     float *gpu_A, *gpu_B, *gpu_C, *gpu_Work;
     int *gpu_pivot , *gpu_info , Lwork;   // pivots , info , worksp. size
     int info_gpu = 0;
-    float time;
+    float time1,time2,time3;
     float  alfa=1.0f;
     float  beta=0.0f;
     int  incx=1, incy =1;
-    chrono::high_resolution_clock::time_point start, finish;
-    chrono::duration<double> elapsed; 
     cudaError_t status;
     cudaEvent_t begin, stop;
     cublasStatus_t  stat; //CUBLAS functions status
@@ -90,7 +88,7 @@ int main(int argc, char **argv){
 
         stat = cublasCreate(&handle);
 
-        start = chrono::high_resolution_clock::now(); //start time measure
+        cudaEventRecord(begin, 0); //start time measure
 
         //----------------------CUBLAS CHARGE CODE----------------------
 
@@ -98,17 +96,16 @@ int main(int argc, char **argv){
         stat = cublasSetMatrix(dim,dim,data_size,B,dim,gpu_B,dim);//b -> gpu_B
         stat = cublasSetMatrix(dim,dim,data_size,C,dim,gpu_C,dim);//c -> gpu_C
 
-        cudaDeviceSynchronize();
-
         //----------------------CUBLAS CHARGE CODE----------------------
+        cudaDeviceSynchronize(); //to reassure everything is in sync
+        cudaEventRecord(stop, 0);
+        cudaEventSynchronize(stop);
+        cudaEventElapsedTime( &time1, begin, stop);
 
-        finish = chrono::high_resolution_clock::now(); //end time measure
-        elapsed = finish - start; //compute time difference
+        if(DEBUG) cout << "MUL_GCHR: With dimension " << dim << ", elapsed time: " <<  time1 << " ms" << endl;
+        saveTimeToFile(dim, time1/1000, "csv/load_multiplication_CUBLAS.csv");     
 
-        cout << "MUL_GCHR: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
-        
         cudaEventRecord(begin, 0);
-        
         //----------------------CUBLAS PARALLEL CODE----------------------
 
         // C := alfa*A*B + beta*C;
@@ -119,12 +116,14 @@ int main(int argc, char **argv){
         cudaDeviceSynchronize(); //to reassure everything is in sync
 
         cudaEventRecord(stop, 0);
+
         cudaEventSynchronize(stop);
-        cudaEventElapsedTime( &time, begin, stop);        
 
-        cout << "MUL_PRLL: With dimension " << dim << ", elapsed time: " << time << " ms" << endl;
+        cudaEventElapsedTime( &time2, begin, stop);
 
-        start = chrono::high_resolution_clock::now(); //start time measure
+        if(DEBUG) cout << "MUL_PRLL: With dimension " << dim << ", elapsed time: " << time2 << " ms" << endl;
+
+        cudaEventRecord(begin, 0); //start time measure
 
         //----------------------CUBLAS DISCHARGE CODE----------------------
         //si basa sul fatto che i caricamenti sono sincroni, mentre l'esecuzione parallela no        
@@ -135,11 +134,16 @@ int main(int argc, char **argv){
 
         //----------------------CUBLAS DISCHARGE CODE----------------------
 
-        finish = chrono::high_resolution_clock::now(); //end time measure
+        cudaDeviceSynchronize(); //to reassure everything is in sync
+        cudaEventRecord(stop, 0);
+        cudaEventSynchronize(stop);
+        cudaEventElapsedTime( &time3, begin, stop);
+        
 
-        elapsed = finish - start; //compute time difference
+        if(DEBUG) cout << "MUL_CCHR: With dimension " << dim << ", elapsed time: " << time3 << " ms" << endl;
+        saveTimeToFile(dim, time3/1000, "csv/read_multiplication_CUBLAS.csv");
 
-       cout << "MUL_CCHR: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
+        saveTimeToFile(dim, (time1+time2+time3)/1000, "csv/multiplication_CUBLAS.csv");
 
         if(DEBUG){
             print_array_as_matrix(C,dim,"MULT ");
@@ -186,7 +190,7 @@ int main(int argc, char **argv){
 
         smaller_size = dim*sizeof(float);
 
-        start = chrono::high_resolution_clock::now(); //start time measure
+        cudaEventRecord(begin, 0); //start time measure
 
         //----------------------CUBLAS CHARGE CODE----------------------
         //si basa sul fatto che i caricamenti sono sincroni, mentre l'esecuzione parallela no        
@@ -200,14 +204,15 @@ int main(int argc, char **argv){
 
         cusolverStatus = cusolverDnSgetrf_bufferSize(cuhandle,dim,dim,gpu_A,dim,&Lwork);      //  compute  buffer  size  and  prep.memory
 
-        cudaDeviceSynchronize();
-
         //----------------------CUBLAS CHARGE CODE----------------------
 
-        finish = chrono::high_resolution_clock::now(); //end time measure
-        elapsed = finish - start; //compute time difference
-        cout << "INV_GCHR: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
-        
+        cudaDeviceSynchronize(); //to reassure everything is in sync
+        cudaEventRecord(stop, 0);
+        cudaEventSynchronize(stop);
+        cudaEventElapsedTime( &time1, begin, stop);
+
+        if(DEBUG) cout << "INV_GCHR: With dimension " << dim << ", elapsed time: " << time1 << " ms" << endl;
+        saveTimeToFile(dim, time1/1000, "csv/load_inversion_CUBLAS.csv");
 
         status = cudaMalloc((void**) &gpu_Work, Lwork*sizeof(float));  
         
@@ -222,17 +227,17 @@ int main(int argc, char **argv){
         cusolverStatus = cusolverDnSgetrf(cuhandle,dim,dim,gpu_A,dim,gpu_Work,gpu_pivot,gpu_info);
         cusolverStatus = cusolverDnSgetrs(cuhandle, CUBLAS_OP_N,dim,1,gpu_A,dim,gpu_pivot,gpu_B,dim,gpu_info);
 
-        //----------------------CUBLAS PARALLEL CODE---------------------- 
+        //----------------------CUBLAS PARALLEL CODE----------------------
 
         cudaDeviceSynchronize(); //to reassure everything is in sync
 
         cudaEventRecord(stop, 0);
         cudaEventSynchronize(stop);
-        cudaEventElapsedTime( &time, begin, stop);
+        cudaEventElapsedTime( &time2, begin, stop);
 
-        cout << "INV_PRLL: With dimension " << dim << ", elapsed time: " << time << " ms" << endl;
-      
-        start = chrono::high_resolution_clock::now(); //start time measure
+        if(DEBUG) cout << "INV_PRLL: With dimension " << dim << ", elapsed time: " << time2 << " ms" << endl;
+        
+        cudaEventRecord(begin, 0); //start time measure
 
         //----------------------CUBLAS DISCHARGE CODE----------------------
         //si basa sul fatto che i caricamenti sono sincroni, mentre l'esecuzione parallela no        
@@ -245,12 +250,15 @@ int main(int argc, char **argv){
 
         //----------------------CUBLAS DISCHARGE CODE----------------------
 
-        finish = chrono::high_resolution_clock::now(); //end time measure
+        cudaDeviceSynchronize(); //to reassure everything is in sync
+        cudaEventRecord(stop, 0);
+        cudaEventSynchronize(stop);
+        cudaEventElapsedTime( &time3, begin, stop);
+         
+        if(DEBUG) cout << "INV_CCHR: With dimension " << dim << ", elapsed time: " << time3 << " ms" << endl;
+        saveTimeToFile(dim, time3/1000, "csv/read_inversion_CUBLAS.csv"); 
+        saveTimeToFile(dim, (time1+time2+time3)/1000, "csv/inversion_CUBLAS.csv");
 
-        elapsed = finish - start; //compute time difference
-         
-        cout << "INV_CCHR: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
-         
         if(DEBUG){
             print_array_as_matrix(C,dim,"C ");
         }
@@ -265,8 +273,7 @@ int main(int argc, char **argv){
         free(A);
         free(B);
         free(C);
-        cusolverStatus = cusolverDnDestroy(cuhandle);       
-        status = cudaDeviceReset();
+        cusolverStatus = cusolverDnDestroy(cuhandle);
     }
  
     cudaEventDestroy(begin);

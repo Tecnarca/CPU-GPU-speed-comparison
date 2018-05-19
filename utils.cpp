@@ -2,13 +2,14 @@
 #include <ctime>
 #include <cstdlib>
 #include <cmath>
+#include <fstream>
 #define R_MAX 20
 
 using namespace std;
 
 /* in questo file vanno tutte le funzioni non di interesse per il progetto in sè */
 
-int** createRandomMatrix(unsigned height, unsigned width, bool invertible){
+int** createRandomMatrix(long height, long width, bool invertible){
       int** m = 0;
       int x, c;
       m = new int*[height];
@@ -39,7 +40,7 @@ int** createRandomMatrix(unsigned height, unsigned width, bool invertible){
       return m;
 }
 
-double** createIdentityMatrix(unsigned dim){
+double** createIdentityMatrix(long dim){
       double** m = 0;
       m = new double*[dim];
 
@@ -51,7 +52,7 @@ double** createIdentityMatrix(unsigned dim){
       return m;
 }
 
-int** createEmpyMatrix(unsigned dim){
+int** createEmpyMatrix(long dim){
       int** m = 0;
       m = new int*[dim];
 
@@ -64,7 +65,7 @@ int** createEmpyMatrix(unsigned dim){
       return m;
 }
 
-void print_matrix(int** A, unsigned n, char* s){
+void print_matrix(int** A, long n, char* s){
   cout << "\n***** MATRICE " << s << "******\n\n";
   for(int i=0;i<n;i++){
       for(int j=0;j<n;j++)
@@ -74,7 +75,7 @@ void print_matrix(int** A, unsigned n, char* s){
   cout << "*********************\n\n"; 
 }
 
-void print_matrix(double** A, unsigned n, char* s){
+void print_matrix(double** A, long n, char* s){
   cout << "\n***** MATRICE " << s << "******\n\n";
   for(int i=0;i<n;i++){
       for(int j=0;j<n;j++)
@@ -84,7 +85,7 @@ void print_matrix(double** A, unsigned n, char* s){
   cout << "*********************\n\n"; 
 }
 
-int* createRandomMatrixArray(unsigned height, unsigned width, bool invertible){
+int* createRandomMatrixArray(long height, long width, bool invertible){
       int* m = 0;
       int x, c;
       m = new int[height*width];
@@ -114,7 +115,7 @@ int* createRandomMatrixArray(unsigned height, unsigned width, bool invertible){
       return m;
 }
 
-double* createIdentityMatrixArray(unsigned dim){
+double* createIdentityMatrixArray(long dim){
       double* m = 0;
       m = new double[dim*dim];
 
@@ -125,7 +126,7 @@ double* createIdentityMatrixArray(unsigned dim){
       return m;
 }
 
-int* createEmpyMatrixArray(unsigned dim){
+int* createEmpyMatrixArray(long dim){
       int* m = 0;
       m = new int[dim*dim];
       for (int h = 0; h < dim; h++){
@@ -135,7 +136,7 @@ int* createEmpyMatrixArray(unsigned dim){
       return m;
 }
 
-void print_array_as_matrix(int* A, unsigned n, char* s){
+void print_array_as_matrix(int* A, long n, char* s){
   cout << "\n***** MATRICE " << s << "******\n\n";
   for(int i=0;i<n;i++){
       for(int j=0;j<n;j++)
@@ -145,7 +146,7 @@ void print_array_as_matrix(int* A, unsigned n, char* s){
   cout << "*********************\n\n"; 
 }
 
-void print_array_as_matrix(double* A, unsigned n, char* s){
+void print_array_as_matrix(double* A, long n, char* s){
   cout << "\n***** MATRICE " << s << "******\n\n";
   for(int i=0;i<n;i++){
       for(int j=0;j<n;j++)
@@ -155,7 +156,7 @@ void print_array_as_matrix(double* A, unsigned n, char* s){
   cout << "*********************\n\n"; 
 }
 
-void print_array_as_matrix(float* A, unsigned n, char* s){
+void print_array_as_matrix(float* A, long n, char* s){
   cout << "\n***** MATRICE " << s << "******\n\n";
   for(int i=0;i<n;i++){
       for(int j=0;j<n;j++)
@@ -163,4 +164,11 @@ void print_array_as_matrix(float* A, unsigned n, char* s){
       cout << endl;
   }
   cout << "*********************\n\n"; 
+}
+
+void saveTimeToFile(long x, double y, char* filename){
+  ofstream file;
+  file.open(filename, ios_base::app);
+  file << x << " " << y << endl;
+  file.close();
 }

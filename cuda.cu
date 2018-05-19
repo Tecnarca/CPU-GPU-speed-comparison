@@ -57,11 +57,12 @@ __global__ void matrixMultiplication(int* A, int* B, int* C, int n) {
 
 
 //ToDo: includere utils tramite utils.h
-extern int* createRandomMatrixArray(unsigned, unsigned, bool);
-extern double* createIdentityMatrixArray(unsigned);
-extern int* createEmpyMatrixArray(unsigned);
-extern void print_array_as_matrix(int*, unsigned, char*);
-extern void print_array_as_matrix(double*, unsigned, char*);
+extern int* createRandomMatrixArray(long, long, bool);
+extern double* createIdentityMatrixArray(long);
+extern int* createEmpyMatrixArray(long);
+extern void print_array_as_matrix(int*, long, char*);
+extern void print_array_as_matrix(double*, long, char*);
+extern void saveTimeToFile(long, double, char*);
 
 
 int main(int argc, char **argv){
@@ -73,7 +74,7 @@ int main(int argc, char **argv){
     double *gpu_inv_A, *gpu_inv_I;
     float time;
     chrono::high_resolution_clock::time_point start, finish;
-    chrono::duration<double> elapsed; 
+    chrono::duration<double> elapsed1, elapsed2;  
     cudaError_t status;
     cudaEvent_t begin, stop;
     cudaEventCreate(&begin);
@@ -135,26 +136,18 @@ int main(int argc, char **argv){
         //si basa sul fatto che i caricamenti sono sincroni, mentre l'esecuzione parallela no        
 
         status = cudaMemcpy(gpu_A, A, data_size, cudaMemcpyHostToDevice);
-        
-        if(status!=cudaSuccess){
-            cout << cudaGetErrorString(status) << " in " << __FILE__ << " at line " << __LINE__ << endl;
-        }
-
         status = cudaMemcpy(gpu_B, B, data_size, cudaMemcpyHostToDevice);
-        
-        if(status!=cudaSuccess){
-            cout << cudaGetErrorString(status) << " in " << __FILE__ << " at line " << __LINE__ << endl;
-        }
 
         cudaDeviceSynchronize();
 
         //----------------------CUDA CHARGE CODE----------------------
 
         finish = chrono::high_resolution_clock::now(); //end time measure
-        elapsed = finish - start; //compute time difference
+        elapsed1 = finish - start; //compute time difference
 
-        cout << "MUL_GCHR: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
-        
+        if(DEBUG) cout << "MUL_GCHR: With dimension " << dim << ", elapsed time: " << elapsed1.count() << " s" << endl;
+        saveTimeToFile(dim, elapsed1.count(), "csv/load_multiplication_CUDA.csv");
+
         cudaEventRecord(begin, 0);
         
         //----------------------CUDA PARALLEL CODE----------------------
@@ -169,7 +162,7 @@ int main(int argc, char **argv){
         cudaEventSynchronize(stop);
         cudaEventElapsedTime( &time, begin, stop);        
 
-        cout << "MUL_PRLL: With dimension " << dim << ", elapsed time: " << time << " ms" << endl;
+        if(DEBUG) cout << "MUL_PRLL: With dimension " << dim << ", elapsed time: " << time << " ms" << endl;
 
         start = chrono::high_resolution_clock::now(); //start time measure
 
@@ -178,19 +171,17 @@ int main(int argc, char **argv){
 
         status = cudaMemcpy(C, gpu_C, data_size, cudaMemcpyDeviceToHost);
 
-        if(status!=cudaSuccess){
-            cout << cudaGetErrorString(status) << " in " << __FILE__ << " at line " << __LINE__ << endl;
-        }
-
         cudaDeviceSynchronize();
 
         //----------------------CUDA DISCHARGE CODE----------------------
 
         finish = chrono::high_resolution_clock::now(); //end time measure
 
-        elapsed = finish - start; //compute time difference
+        elapsed2 = finish - start; //compute time difference
 
-       cout << "MUL_CCHR: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
+       if(DEBUG) cout << "MUL_CCHR: With dimension " << dim << ", elapsed time: " << elapsed2.count() << " s" << endl;
+       saveTimeToFile(dim, elapsed2.count(), "csv/read_multiplication_CUDA.csv");
+       saveTimeToFile(dim, elapsed1.count()+elapsed2.count()+time/1000, "csv/multiplication_CUDA.csv");
 
         if(DEBUG){
             print_array_as_matrix(C,dim,"MULT ");
@@ -234,25 +225,17 @@ int main(int argc, char **argv){
         //si basa sul fatto che i caricamenti sono sincroni, mentre l'esecuzione parallela no        
 
         status = cudaMemcpy(gpu_inv_A, M, data_size, cudaMemcpyHostToDevice);
-        
-        if(status!=cudaSuccess){
-            cout << cudaGetErrorString(status) << " in " << __FILE__ << " at line " << __LINE__ << endl;
-        }
-
         status = cudaMemcpy(gpu_inv_I, D, data_size, cudaMemcpyHostToDevice);
-
-        if(status!=cudaSuccess){
-            cout << cudaGetErrorString(status) << " in " << __FILE__ << " at line " << __LINE__ << endl;
-        }
 
         cudaDeviceSynchronize();
 
         //----------------------CUDA CHARGE CODE----------------------
 
         finish = chrono::high_resolution_clock::now(); //end time measure
-        elapsed = finish - start; //compute time difference
-        cout << "INV_GCHR: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
-        
+        elapsed1 = finish - start; //compute time difference
+        if(DEBUG) cout << "INV_GCHR: With dimension " << dim << ", elapsed time: " << elapsed1.count() << " s" << endl;
+        saveTimeToFile(dim, elapsed1.count(), "csv/load_inversion_CUDA.csv");
+
         cudaEventRecord(begin, 0);
 
         //----------------------CUDA PARALLEL CODE----------------------
@@ -271,7 +254,7 @@ int main(int argc, char **argv){
         cudaEventSynchronize(stop);
         cudaEventElapsedTime( &time, begin, stop);
 
-        cout << "INV_PRLL: With dimension " << dim << ", elapsed time: " << time << " ms" << endl;
+        if(DEBUG) cout << "INV_PRLL: With dimension " << dim << ", elapsed time: " << time << " ms" << endl;
       
         start = chrono::high_resolution_clock::now(); //start time measure
 
@@ -279,16 +262,7 @@ int main(int argc, char **argv){
         //si basa sul fatto che i caricamenti sono sincroni, mentre l'esecuzione parallela no        
 
         status = cudaMemcpy(M, gpu_inv_A, data_size, cudaMemcpyDeviceToHost);
-        
-        if(status!=cudaSuccess){
-            cout << cudaGetErrorString(status) << " in " << __FILE__ << " at line " << __LINE__ << endl;
-        }
-
         status = cudaMemcpy(D, gpu_inv_I, data_size, cudaMemcpyDeviceToHost);
-
-        if(status!=cudaSuccess){
-            cout << cudaGetErrorString(status) << " in " << __FILE__ << " at line " << __LINE__ << endl;
-        }
 
         cudaDeviceSynchronize();
 
@@ -296,10 +270,12 @@ int main(int argc, char **argv){
 
         finish = chrono::high_resolution_clock::now(); //end time measure
 
-        elapsed = finish - start; //compute time difference
+        elapsed2 = finish - start; //compute time difference
          
-        cout << "INV_CCHR: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
-         
+        if(DEBUG) cout << "INV_CCHR: With dimension " << dim << ", elapsed time: " << elapsed2.count() << " s" << endl;
+        saveTimeToFile(dim, elapsed2.count(), "csv/read_inversion_CUDA.csv");
+        saveTimeToFile(dim, elapsed1.count()+elapsed2.count()+time/1000, "csv/inversion_CUDA.csv");
+
         if(DEBUG){
             print_array_as_matrix(D,dim,"D ");
             print_array_as_matrix(M,dim,"M ");

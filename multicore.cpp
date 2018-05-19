@@ -10,16 +10,17 @@ using namespace std;
 void* thread_mat_inv(void*);
 void* thread_mat_mul(void*);
 
-extern int** createRandomMatrix(unsigned, unsigned, bool);
-extern double** createIdentityMatrix(unsigned);
-extern void print_matrix(int**, unsigned, char*);
-extern void print_matrix(double**, unsigned, char*);
-extern int** createEmpyMatrix(unsigned);
+extern int** createRandomMatrix(long, long, bool);
+extern double** createIdentityMatrix(long);
+extern void print_matrix(int**, long, char*);
+extern void print_matrix(double**, long, char*);
+extern int** createEmpyMatrix(long);
+extern void saveTimeToFile(long, double, char*);
 
 
 int **A, **B, **C; //dopo moltiplicazione, C = A*B
 double **D, **M; //dopo inversione, M = I && D = A^-1
-unsigned dim;
+long dim;
 int thread_number; // ToDo: controllare se il numero è migliorabile
 
 static pthread_barrier_t barrier;
@@ -89,8 +90,9 @@ int main(int argc, char **argv){
 
 		//ToDo: output to file instead of console
 		//format of the output to file: DECIDE CHI USA MATPLOTLIB
-		cout << "MUL: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
+		if(DEBUG) cout << "MUL: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
 		//elapsed.count() restituisce il tempo in secondi
+		saveTimeToFile(dim, elapsed.count(), "csv/multiplication_MultiThread.csv");
 
       	M = new double*[dim];
 
@@ -128,9 +130,10 @@ int main(int argc, char **argv){
 
 		//ToDo: output to file instead of console
 		//format of the output to file: DECIDE CHI USA MATPLOTLIB
-		cout << "INV: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
+		if(DEBUG) cout << "INV: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
 		//elapsed.count() restituisce il tempo in secondi
-				
+		saveTimeToFile(dim, elapsed.count(), "csv/inversion_MultiThread.csv");
+
 		free(A);
 		free(B);
 		free(C);

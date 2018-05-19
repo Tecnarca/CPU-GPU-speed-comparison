@@ -7,19 +7,18 @@
 using namespace std;
 
 
-extern int** createRandomMatrix(unsigned, unsigned, bool);
-extern double** createIdentityMatrix(unsigned);
-extern int** createEmpyMatrix(unsigned);
-extern void print_matrix(int**, unsigned, char*);
-extern void print_matrix(double**, unsigned, char*);
+extern int** createRandomMatrix(long, long, bool);
+extern double** createIdentityMatrix(long);
+extern int** createEmpyMatrix(long);
+extern void print_matrix(int**, long, char*);
+extern void print_matrix(double**, long, char*);
+extern void saveTimeToFile(long, double, char*);
 
-void mat_inv(double**, double**, unsigned);
-void mat_mul(int**, int**, int**, unsigned);
+void mat_inv(double**, double**, long);
+void mat_mul(int**, int**, int**, long);
 
 int main(int argc, char **argv){
-
-	unsigned dim;
-	long min_dim, max_dim, step; 
+	long min_dim, max_dim, step, dim; 
 	chrono::high_resolution_clock::time_point start, finish;
 	chrono::duration<double> elapsed;
 	int **A, **B, **C;
@@ -78,8 +77,10 @@ int main(int argc, char **argv){
 
 		//ToDo: output to file instead of console
 		//format of the output to file: DECIDE CHI USA MATPLOTLIB
-		cout << "MUL: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
+		if(DEBUG) cout << "MUL: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
 		//elapsed.count() restituisce il tempo in secondi
+    saveTimeToFile(dim, elapsed.count(), "csv/multiplication_OpenMP.csv");
+
 
 		start = chrono::high_resolution_clock::now(); //start time measure
 
@@ -101,9 +102,10 @@ int main(int argc, char **argv){
 
 		//ToDo: output to file instead of console
 		//format of the output to file: DECIDE CHI USA MATPLOTLIB
-		cout << "INV: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
+		if(DEBUG) cout << "INV: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
 		//elapsed.count() restituisce il tempo in secondi
-	
+    saveTimeToFile(dim, elapsed.count(), "csv/inversion_OpenMP.csv");
+
 		free(A);
 		free(B);
 		free(C);
@@ -115,7 +117,7 @@ int main(int argc, char **argv){
 }
 
 //INVERSIONE
-void mat_inv(double **M, double **D, unsigned dim){
+void mat_inv(double **M, double **D, long dim){
   double p;
   int i,j,k;
   for(int z=0; z<2; z++){
@@ -149,7 +151,7 @@ void mat_inv(double **M, double **D, unsigned dim){
 }
 
 //MOLTIPLICAZIONE
-void mat_mul(int **A,int **B, int** prodotto, unsigned n){
+void mat_mul(int **A,int **B, int** prodotto, long n){
     // *** Moltiplicazione Tra Matrice A*** e B*** //  
   int i,j,k;
   #pragma omp parallel for private(i,j,k)
