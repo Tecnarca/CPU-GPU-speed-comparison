@@ -42,7 +42,6 @@ int main(int argc, char **argv){
   //for every dim from min_dim to max_dim, with step 'step'
   for(dim=min_dim;dim<max_dim;dim+=step){
 
-		//ToDo: parallelizzare anche questa funzione (?)
 		A = createRandomMatrix(dim, dim, true); // true means "invertible"
 		B = createRandomMatrix(dim, dim, false); // false means "not invertible"
     C = createEmpyMatrix(dim);

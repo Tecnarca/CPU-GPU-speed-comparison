@@ -7,10 +7,11 @@
 #include <cstring>
 #include <cmath>
 #define DEBUG 0
+//If DEBUG is setted, will print the used matrices and the times on the stdout
 
 using namespace std;
 
-//ToDo: includere utils tramite utils.h
+/* From utils.cpp */
 extern void print_array_as_matrix(int*, long, char*);
 extern void print_array_as_matrix(float*, long, char*);
 extern int* createRandomMatrixArray(long, long, bool);
@@ -19,37 +20,38 @@ extern void saveTimeToFile(long, double, char*);
 int main(int argc, char **argv){
 
     long min_dim, max_dim, step, dim, data_size, smaller_size;
-    int *S;
-    float *A, *B, *C;
-    float *gpu_A, *gpu_B, *gpu_C, *gpu_Work;
-    int *gpu_pivot , *gpu_info , Lwork;   // pivots , info , worksp. size
+    int *S; //used to avoid overloading the 'utils' functions once again
+    float *A, *B, *C; //Cublas requires matrices to be float* type, C=A*B when multiplicating and C=A^-1 when inverting
+    float *gpu_A, *gpu_B, *gpu_C, *gpu_Work;//GPU Matrices
+    int *gpu_pivot , *gpu_info , Lwork;   // pivots, info, worksp. size, used by cublas
     int info_gpu = 0;
-    float time1,time2,time3;
-    float  alfa=1.0f;
+    float time1,time2,time3; //Will contain elapsed time returned by CUDA events, in milliseconds
+    float  alfa=1.0f; //costants for the cublas solver
     float  beta=0.0f;
     int  incx=1, incy =1;
-    cudaError_t status;
-    cudaEvent_t begin, stop;
+    cudaError_t status; //variable for error handling
+    cudaEvent_t begin, stop; //used to time the functions on the GPU
     cublasStatus_t  stat; //CUBLAS functions status
     cublasHandle_t  handle; //CUBLAS context
     cusolverStatus_t  cusolverStatus;
     cusolverDnHandle_t  cuhandle;
-    cudaEventCreate(&begin);
+    cudaEventCreate(&begin); //initialize objects
     cudaEventCreate(&stop);
 
+    // Print the usage command if too few parameters were passed
     if(argc != 4){
         cout << "Usage: " << argv[0] << " [min_dim] [max_dim] [step]" << endl;
         return -1;
     }
 
     min_dim = strtol(argv[1], NULL, 10);
-    max_dim = strtol(argv[2], NULL, 10)+1;
+    max_dim = strtol(argv[2], NULL, 10)+1; //'+1' means we will evaluate the "max_dim" value passed as a argument
     step = strtol(argv[3], NULL, 10);
 
+    //for every dim from min_dim to max_dim, with step 'step'
     for(dim=min_dim;dim<max_dim;dim+=step){
 
-        //Matrix as a sequential array
-
+        //Matrix as a sequential array, copied back from "S"
         S = createRandomMatrixArray(dim, dim, true); //true means "invertible"
         A = new float[dim*dim];
         for(int i=0;i<dim;i++) for(int j=0;j<dim;j++) A[i*dim+j] = (float)S[i*dim+j];
@@ -61,8 +63,10 @@ int main(int argc, char **argv){
         C = new float[dim*dim];
         for(int i=0;i<dim;i++) for(int j=0;j<dim;j++) C[i*dim+j] = 0;
 
+        //Number of bytes contained in one matrix
         data_size = dim*dim*sizeof(float);
 
+        //allocate memory to contain the matrices
         status = cudaMalloc((void**) &gpu_A, data_size);
         
         if(status!=cudaSuccess){
@@ -86,11 +90,14 @@ int main(int argc, char **argv){
             print_array_as_matrix(B,dim,"B ");
         }
 
+        //BEGIN MATRICES MULTIPLICATION
+
         stat = cublasCreate(&handle);
 
         cudaEventRecord(begin, 0); //start time measure
 
         //----------------------CUBLAS CHARGE CODE----------------------
+        //copy the matrices A and B from RAM to GPU RAM 
 
         stat = cublasSetMatrix(dim,dim,data_size,A,dim,gpu_A,dim);//a -> gpu_A
         stat = cublasSetMatrix(dim,dim,data_size,B,dim,gpu_B,dim);//b -> gpu_B
@@ -99,16 +106,19 @@ int main(int argc, char **argv){
         //----------------------CUBLAS CHARGE CODE----------------------
         cudaDeviceSynchronize(); //to reassure everything is in sync
         cudaEventRecord(stop, 0);
-        cudaEventSynchronize(stop);
-        cudaEventElapsedTime( &time1, begin, stop);
+        cudaEventSynchronize(stop); //end time measure
+        cudaEventElapsedTime( &time1, begin, stop); //compute time difference
 
         if(DEBUG) cout << "MUL_GCHR: With dimension " << dim << ", elapsed time: " <<  time1 << " ms" << endl;
+        
+        //Save how much time the load took
         saveTimeToFile(dim, time1/1000, "csv/load_multiplication_CUBLAS.csv");     
 
         cudaEventRecord(begin, 0);
         //----------------------CUBLAS PARALLEL CODE----------------------
-
-        // C := alfa*A*B + beta*C;
+        //Sgemm is the only function provided to multiply matrices, the formula that follows is:
+        // C := alfa*A*B + beta*C (uses C as "bias" matrix and puts the result in C itself)
+        
         stat=cublasSgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,dim,dim,dim,&alfa,gpu_A,dim,gpu_B,dim,&beta,gpu_C,dim);
 
         //----------------------CUBLAS PARALLEL CODE---------------------- 
@@ -126,7 +136,7 @@ int main(int argc, char **argv){
         cudaEventRecord(begin, 0); //start time measure
 
         //----------------------CUBLAS DISCHARGE CODE----------------------
-        //si basa sul fatto che i caricamenti sono sincroni, mentre l'esecuzione parallela no        
+        //Reading and paste back on RAM the result matrix        
 
         stat=cublasGetMatrix(dim,dim,data_size,gpu_C,dim,C,dim); // gpu_C -> C
 
@@ -141,14 +151,18 @@ int main(int argc, char **argv){
         
 
         if(DEBUG) cout << "MUL_CCHR: With dimension " << dim << ", elapsed time: " << time3 << " ms" << endl;
+        
+        //Save how much time the read of the result took
         saveTimeToFile(dim, time3/1000, "csv/read_multiplication_CUBLAS.csv");
 
+        //Save how much time the whole computation took (load+calculations+read)
         saveTimeToFile(dim, (time1+time2+time3)/1000, "csv/multiplication_CUBLAS.csv");
 
         if(DEBUG){
             print_array_as_matrix(C,dim,"MULT ");
         }
 
+        //Free useless memory on the GPU and on the RAM
         cudaFree(gpu_A);
         cudaFree(gpu_B);
         cudaFree(gpu_C);
@@ -156,14 +170,17 @@ int main(int argc, char **argv){
         free(C);
         cublasDestroy(handle);   
 
+        //BEGIN MATRIX INVERSION
         B = new float[dim];
         C = new float[dim];
 
-        for(int i=0;i<dim;i++) B[i] = 0.0;                //  initialize B
-        for(int i=0;i<dim;i++) C[i] = 1.0;    // C - N-vector  of ones
+        for(int i=0;i<dim;i++) B[i] = 0.0; //initialize B to zero
+        for(int i=0;i<dim;i++) C[i] = 1.0; //vector of ones
 
-        cusolverStatus = cusolverDnCreate (& cuhandle ); 
+        //creating cusolver handler
+        cusolverStatus = cusolverDnCreate(&cuhandle); 
 
+        //allocate memory to contain the matrices
         status = cudaMalloc((void**) &gpu_A, data_size);
         
         if(status!=cudaSuccess){
@@ -193,16 +210,16 @@ int main(int argc, char **argv){
         cudaEventRecord(begin, 0); //start time measure
 
         //----------------------CUBLAS CHARGE CODE----------------------
-        //si basa sul fatto che i caricamenti sono sincroni, mentre l'esecuzione parallela no        
+        //copy the matrices A and B from RAM to GPU RAM         
 
-        status = cudaMemcpy(gpu_A, A, data_size,cudaMemcpyHostToDevice);      // copy d_A <-A
+        status = cudaMemcpy(gpu_A, A, data_size,cudaMemcpyHostToDevice); //copy gpu_A <-A
 
-        //moltiplica B = A*C
+        //B = A*C on the CPU, the resulting vector is used later by the cuSolver
         cblas_sgemv(CblasColMajor,CblasNoTrans,dim,dim,alfa,A,dim,C,incx,beta,B,incy);
 
-        status = cudaMemcpy(gpu_B, B, smaller_size,cudaMemcpyHostToDevice);      // copy d_B <-B
+        status = cudaMemcpy(gpu_B, B, smaller_size,cudaMemcpyHostToDevice); //copy gpu_B <-B
 
-        cusolverStatus = cusolverDnSgetrf_bufferSize(cuhandle,dim,dim,gpu_A,dim,&Lwork);      //  compute  buffer  size  and  prep.memory
+        cusolverStatus = cusolverDnSgetrf_bufferSize(cuhandle,dim,dim,gpu_A,dim,&Lwork); //compute  buffer  size  and  prep.memory
 
         //----------------------CUBLAS CHARGE CODE----------------------
 
@@ -223,6 +240,8 @@ int main(int argc, char **argv){
         cudaEventRecord(begin, 0);
 
         //----------------------CUBLAS PARALLEL CODE----------------------
+        //getrf factorize the provided matrix to LU, getrs solve the generic system A*X=B, that computes the inverse because B = Identity
+        //Reference: https://docs.nvidia.com/cuda/cusolver/index.html#cuds-lt-t-gt-getrs
 
         cusolverStatus = cusolverDnSgetrf(cuhandle,dim,dim,gpu_A,dim,gpu_Work,gpu_pivot,gpu_info);
         cusolverStatus = cusolverDnSgetrs(cuhandle, CUBLAS_OP_N,dim,1,gpu_A,dim,gpu_pivot,gpu_B,dim,gpu_info);
@@ -240,7 +259,7 @@ int main(int argc, char **argv){
         cudaEventRecord(begin, 0); //start time measure
 
         //----------------------CUBLAS DISCHARGE CODE----------------------
-        //si basa sul fatto che i caricamenti sono sincroni, mentre l'esecuzione parallela no        
+        //Reading and paste back on RAM the result matrix        
 
         status = cudaMemcpy (&info_gpu , gpu_info , sizeof(int), cudaMemcpyDeviceToHost );
         if(DEBUG) cout << "after getrf+getrs: info_gpu = " << info_gpu << endl;
