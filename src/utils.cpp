@@ -4,12 +4,17 @@
 #include <cmath>
 #include <fstream>
 #define R_MAX 20
+/* R_MAX/2 is the biggest number that will appear in the random matrices */
+/* a small R_MAX improves numerical stability when inverting a matrix */
+
 
 using namespace std;
 
-/* in questo file vanno tutte le funzioni non di interesse per il progetto in sè */
+/* This file contains all the utility functions */
+/* It could be well written, but it's not */
+/* We will write this better in the future */
 
-int** createRandomMatrix(long height, long width, bool invertible){
+int** createRandomMatrix(long height, long width, bool invertible){ 
       int** m = 0;
       int x, c;
       m = new int*[height];
@@ -29,8 +34,8 @@ int** createRandomMatrix(long height, long width, bool invertible){
             			c+=abs(x);
             			m[h][w] = x;	
             		}
-            	
-            	m[h][h] = rand()%(R_MAX/10) + c + 1;
+            	// Condition to be diagonally dominant: for each h, abs(m[h][h]) > c, where c = (sum for every w!=h, w<dim, w++: abs(m[h][w]))
+            	m[h][h] = rand()%(R_MAX/10) + c + 1; 
 
             } else
             	for (int w = 0; w < width; w++)
@@ -40,6 +45,7 @@ int** createRandomMatrix(long height, long width, bool invertible){
       return m;
 }
 
+//This creates the standard idendity matrix
 double** createIdentityMatrix(long dim){
       double** m = 0;
       m = new double*[dim];
@@ -52,6 +58,7 @@ double** createIdentityMatrix(long dim){
       return m;
 }
 
+//matrix full of 0
 int** createEmpyMatrix(long dim){
       int** m = 0;
       m = new int*[dim];
@@ -65,26 +72,9 @@ int** createEmpyMatrix(long dim){
       return m;
 }
 
-void print_matrix(int** A, long n, char* s){
-  cout << "\n***** MATRICE " << s << "******\n\n";
-  for(int i=0;i<n;i++){
-      for(int j=0;j<n;j++)
-        cout << A[i][j] << "\t";
-      cout << endl;
-  }
-  cout << "*********************\n\n"; 
-}
-
-void print_matrix(double** A, long n, char* s){
-  cout << "\n***** MATRICE " << s << "******\n\n";
-  for(int i=0;i<n;i++){
-      for(int j=0;j<n;j++)
-        cout << A[i][j] << "\t";
-      cout << endl;
-  }
-  cout << "*********************\n\n"; 
-}
-
+//Same function as before, but they create arrays instead of matrices.
+//The created arrays are row-wise concatenated matrices, with the same proprieties as before
+//Note: if m has 'height' rows, m[h][w] = m[h*height+w]
 int* createRandomMatrixArray(long height, long width, bool invertible){
       int* m = 0;
       int x, c;
@@ -136,6 +126,36 @@ int* createEmpyMatrixArray(long dim){
       return m;
 }
 
+//Saves the dim (x) and the recorded time (y) to a file (*filename) in the format:
+// x y
+void saveTimeToFile(long x, double y, char* filename){
+  ofstream file;
+  file.open(filename, ios_base::app);
+  file << x << " " << y << endl;
+  file.close();
+}
+
+//Print functions
+void print_matrix(int** A, long n, char* s){
+  cout << "\n***** MATRICE " << s << "******\n\n";
+  for(int i=0;i<n;i++){
+      for(int j=0;j<n;j++)
+        cout << A[i][j] << "\t";
+      cout << endl;
+  }
+  cout << "*********************\n\n"; 
+}
+
+void print_matrix(double** A, long n, char* s){
+  cout << "\n***** MATRICE " << s << "******\n\n";
+  for(int i=0;i<n;i++){
+      for(int j=0;j<n;j++)
+        cout << A[i][j] << "\t";
+      cout << endl;
+  }
+  cout << "*********************\n\n"; 
+}
+
 void print_array_as_matrix(int* A, long n, char* s){
   cout << "\n***** MATRICE " << s << "******\n\n";
   for(int i=0;i<n;i++){
@@ -164,11 +184,4 @@ void print_array_as_matrix(float* A, long n, char* s){
       cout << endl;
   }
   cout << "*********************\n\n"; 
-}
-
-void saveTimeToFile(long x, double y, char* filename){
-  ofstream file;
-  file.open(filename, ios_base::app);
-  file << x << " " << y << endl;
-  file.close();
 }

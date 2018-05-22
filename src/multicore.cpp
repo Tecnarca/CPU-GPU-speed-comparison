@@ -4,12 +4,11 @@
 #include <cstring>
 #define DEBUG 0
 #define MIN(a, b) (((a) > (b)) ? (b) : (a))
+//If DEBUG is setted, will print the used matrices and the times on the stdout
 
 using namespace std;
 
-void* thread_mat_inv(void*);
-void* thread_mat_mul(void*);
-
+/* From utils.cpp */
 extern int** createRandomMatrix(long, long, bool);
 extern double** createIdentityMatrix(long);
 extern void print_matrix(int**, long, char*);
@@ -17,14 +16,21 @@ extern void print_matrix(double**, long, char*);
 extern int** createEmpyMatrix(long);
 extern void saveTimeToFile(long, double, char*);
 
+/* For inverting and multiplicating matrices, these functions will be timed */
+/* pThread requires them to have type and parameters be void* */
+void* thread_mat_inv(void*);
+void* thread_mat_mul(void*);
 
-int **A, **B, **C; //dopo moltiplicazione, C = A*B
-double **D, **M; //dopo inversione, M = I && D = A^-1
-long dim;
-int thread_number; // ToDo: controllare se il numero è migliorabile
+//Global variables because every thread will operate on them
+int **A, **B, **C; //After multiplicating, C=A*B
+double **D, **M; //M=A, D=Identity and after inversion: D = A^-1, M=Identity
+long dim; //dim of the currently used matrices
+int thread_number;
 
 static pthread_barrier_t barrier;
 
+//used to tell the thread from wich column or row he should start inverting/multiplicating
+//and with wich step, passed parameters will be described in the thread creation line
 struct coord{
 	int x;
 	int y;
@@ -32,25 +38,28 @@ struct coord{
 
 int main(int argc, char **argv){
 
-	long min_dim, max_dim, step; 
-	chrono::high_resolution_clock::time_point start, finish;
-	chrono::duration<double> elapsed;
-	pthread_t* threads;
-	coord* params;
+	long min_dim, max_dim, step; //Used to determine what matrix dimensions we will test
+	chrono::high_resolution_clock::time_point start, finish; //Used to implement the timing
+	chrono::duration<double> elapsed; //Will contain the elapsed time
+	pthread_t* threads; //thread objects array
+	coord* params; //every thread has is own parameters
 
-	//ToDo(?) si puo' mettere il path del file da salvare come argomento di input
+	// Print the usage command if too few parameters were passed
 	if(argc != 5){
 		cout << "Usage: " << argv[0] << " [min_dim] [max_dim] [step] [thread_number]" << endl;
 		return -1;
 	}
 
 	min_dim = strtol(argv[1], NULL, 10);
-	max_dim = strtol(argv[2], NULL, 10)+1;
+	max_dim = strtol(argv[2], NULL, 10)+1; //'+1' means we will evaluate the "max_dim" value passed as a argument
 	step = strtol(argv[3], NULL, 10);
+
+	//thread number is taken via input
 	thread_number = strtol(argv[4], NULL, 10);
 	threads = new pthread_t[thread_number];
 	params = new coord[thread_number];
 
+	//for every dim from min_dim to max_dim, with step 'step'
 	for(dim=min_dim;dim<max_dim;dim+=step){
 
 		//ToDo: parallelizzare anche questa funzione (?)
@@ -64,16 +73,24 @@ int main(int argc, char **argv){
     		print_matrix(B,dim,"B ");
   		}
 
+  		//BEGIN MATRICES MULTIPLICATION
+
 		start = chrono::high_resolution_clock::now(); //start time measure
 
 
 		//----------------------MULTITHREAD CODE----------------------
 
 		for(int i=0; i<thread_number; i++){
+			//x and y are used to balance the load between threads.
+			//in this case a thread computes the submatrix of the result.
+			//the submatrix is from the column 'x' to the column 'y' 
 			params[i].x = i*dim/thread_number; //what row we start multiplicating
-			params[i].y = MIN((i+1)*dim/thread_number,dim); //what row we stop multiplicating
+			params[i].y = MIN((i+1)*dim/thread_number,dim); //what row we stop multiplicating (must be within the max 'dim' value)
+			//Creation of the threads
 			pthread_create(&threads[i],NULL,thread_mat_mul,(void*)&params[i]);
 		}
+
+		//waits for all threads to exit
 		for (int i=0; i<thread_number; i++) {
  		   pthread_join(threads[i],NULL);
 		}
@@ -88,19 +105,20 @@ int main(int argc, char **argv){
 
 		elapsed = finish - start; //compute time difference
 
-		//ToDo: output to file instead of console
-		//format of the output to file: DECIDE CHI USA MATPLOTLIB
+		//elapsed.count() gives the time in seconds
 		if(DEBUG) cout << "MUL: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
-		//elapsed.count() restituisce il tempo in secondi
+		
 		saveTimeToFile(dim, elapsed.count(), "csv/multiplication_MultiThread.csv");
 
+		//M = A
       	M = new double*[dim];
-
       	for (int h = 0; h < dim; h++){
         	M[h] = new double[dim];
         	for (int w = 0; w < dim; w++)
                 	M[h][w] = A[h][w];
       	}
+
+      	//BEGIN MATRIX INVERSION
 
 		start = chrono::high_resolution_clock::now(); //start time measure
 
@@ -108,11 +126,15 @@ int main(int argc, char **argv){
 
 		pthread_barrier_init(&barrier, NULL, thread_number);
 
-		for(int i=0; i<thread_number; i++){ //one thread per column. This simplifies the algorithm greatly
-			params[i].x = i; //what column we reduce
+		for(int i=0; i<thread_number; i++){
+			//x is used to balance the load between threads. y is unused.
+			//to be balanced, every thread reduces the all the columns of index x*n (until x*n < dim), where n is integer
+			params[i].x = i; //what columns we reduce
+			//Creation of the threads
 			pthread_create(&threads[i],NULL,thread_mat_inv,(void*)&params[i]);
 		}
 
+		//waits for all threads to exit
 		for (int i=0; i<thread_number; i++) {
  		   pthread_join( threads[i],NULL);
 		}
@@ -128,12 +150,11 @@ int main(int argc, char **argv){
 
 		elapsed = finish - start; //compute time difference
 
-		//ToDo: output to file instead of console
-		//format of the output to file: DECIDE CHI USA MATPLOTLIB
 		if(DEBUG) cout << "INV: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
-		//elapsed.count() restituisce il tempo in secondi
+
 		saveTimeToFile(dim, elapsed.count(), "csv/inversion_MultiThread.csv");
 
+		//Free because we will reallocate memory in the next for step
 		free(A);
 		free(B);
 		free(C);
@@ -159,26 +180,29 @@ void* thread_mat_mul(void* params) {
 }
 
 void* thread_mat_inv(void* params) {
-	coord *v = (coord*)params;
+	coord *v = (coord*)params; //casting the parameters back to the right type
 	double p;
 
-	for(int z=0; z<2; z++){
-		//riduci a triangolare superiore
+	for(int z=0; z<2; z++){ //done two times:
+		//reduce M to upper triangular 
 		for(int k=0; k<dim; k++){ //foreach row
-			pthread_barrier_wait(&barrier); //sinchro point
+			//required sync accross all threads
+			//if not reassured, one thread will start overwriting a row currently used from another thread
+			pthread_barrier_wait(&barrier); 
 			p = M[k][k];
 			for(int j=k+v->x; j<dim; j+=thread_number){ //foreach thread column
 				M[k][j] /= p;
 				D[k][j] /= p;
-				for(int i=k+1;i<dim;i++){
+				for(int i=k+1;i<dim;i++){ //for every element
 					M[i][j] -= M[i][k]*M[k][j];
 					D[i][j] -= M[i][k]*D[k][j];
 				}
 			}
 		}
 
-		//trasponi le matrici M e D
-		for(int i=0;i<dim-1;i+=thread_number){
+		//traspose M and D, the whole function could be made faster
+    	//by playing with the indexes instead of reducing the matrix two times
+    	for(int i=0;i<dim-1;i+=thread_number){
 			M[i][i] = 1;
 			for(int j=i+1; j<dim; j++){
 				M[i][j] = 0;

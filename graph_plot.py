@@ -5,6 +5,9 @@ import glob
 import matplotlib.pyplot as plt
 
 #Files are searched inside the directory "csv" that must be inside the current directory
+#In every file there is the data for a single curve
+#Every read filename must start with the name in "types"
+#Every line in every file follows the format: [X_coord] [Y_coord]
 
 i=0
 types = ['multiplication_*.csv', 'inversion_*.csv', 'multiplication_CU*.csv', 'inversion_CU*.csv', 'load_multiplication_*.csv', 'read_multiplication_*.csv', 'load_inversion_*.csv', 'read_inversion_*.csv']

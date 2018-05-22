@@ -3,10 +3,11 @@
 #include <cstring>
 #include <omp.h>
 #define DEBUG 0
+//If DEBUG is setted, will print the used matrices and the times on the stdout
 
 using namespace std;
 
-
+/* From utils.cpp */
 extern int** createRandomMatrix(long, long, bool);
 extern double** createIdentityMatrix(long);
 extern int** createEmpyMatrix(long);
@@ -14,30 +15,32 @@ extern void print_matrix(int**, long, char*);
 extern void print_matrix(double**, long, char*);
 extern void saveTimeToFile(long, double, char*);
 
+/* For inverting and multiplicating matrices, these functions will be timed */
 void mat_inv(double**, double**, long);
 void mat_mul(int**, int**, int**, long);
 
 int main(int argc, char **argv){
-	long min_dim, max_dim, step, dim; 
-	chrono::high_resolution_clock::time_point start, finish;
-	chrono::duration<double> elapsed;
-	int **A, **B, **C;
-  double **D, **M;
+  long min_dim, max_dim, step, dim; //Used to determine what matrix dimensions we will test
+  chrono::high_resolution_clock::time_point start, finish; //Used to implement the timing
+  chrono::duration<double> elapsed; //Will contain the elapsed time
+  int **A, **B, **C; //After multiplicating, C=A*B
+  double **D, **M; //M=A, D=Identity and after inversion: D = A^-1, M=Identity
   
-  omp_set_num_threads(4);
-    
-	//ToDo(?) si puo' mettere il path del file da salvare come argomento di input
-	if(argc != 4){
+  omp_set_num_threads(4); //Set the number of threads to 4, you might want to change this
+
+  // Print the usage command if too few parameters were passed
+  if(argc != 4){
     cout << "Usage: " << argv[0] << " [min_dim] [max_dim] [step]" << endl;
     return -1;
-	}
+  }
+  
+  min_dim = strtol(argv[1], NULL, 10);
+  max_dim = strtol(argv[2], NULL, 10)+1; //'+1' means we will evaluate the "max_dim" value passed as a argument
+  step = strtol(argv[3], NULL, 10);
 
-	min_dim = strtol(argv[1], NULL, 10);
-	max_dim = strtol(argv[2], NULL, 10)+1;
-	step = strtol(argv[3], NULL, 10);
 
-
-	for(dim=min_dim;dim<max_dim+1;dim+=step){
+  //for every dim from min_dim to max_dim, with step 'step'
+  for(dim=min_dim;dim<max_dim;dim+=step){
 
 		//ToDo: parallelizzare anche questa funzione (?)
 		A = createRandomMatrix(dim, dim, true); // true means "invertible"
@@ -45,8 +48,8 @@ int main(int argc, char **argv){
     C = createEmpyMatrix(dim);
     D = createIdentityMatrix(dim);
 
+    //M=A
     M = new double*[dim];
-
     for (int h = 0; h < dim; h++){
       M[h] = new double[dim];
       for (int w = 0; w < dim; w++)
@@ -57,6 +60,8 @@ int main(int argc, char **argv){
       print_matrix(A,dim,"A ");
       print_matrix(B,dim,"B ");
     }
+
+    //BEGIN MATRICES MULTIPLICATION
 
 		start = chrono::high_resolution_clock::now(); //start time measure
 
@@ -75,12 +80,12 @@ int main(int argc, char **argv){
 
 		elapsed = finish - start; //compute time difference
 
-		//ToDo: output to file instead of console
-		//format of the output to file: DECIDE CHI USA MATPLOTLIB
+    //elapsed.count() gives the time in seconds
 		if(DEBUG) cout << "MUL: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
-		//elapsed.count() restituisce il tempo in secondi
+
     saveTimeToFile(dim, elapsed.count(), "csv/multiplication_OpenMP.csv");
 
+    //BEGIN MATRIX INVERSION
 
 		start = chrono::high_resolution_clock::now(); //start time measure
 
@@ -100,12 +105,11 @@ int main(int argc, char **argv){
 
 		elapsed = finish - start; //compute time difference
 
-		//ToDo: output to file instead of console
-		//format of the output to file: DECIDE CHI USA MATPLOTLIB
 		if(DEBUG) cout << "INV: With dimension " << dim << ", elapsed time: " << elapsed.count() << " s" << endl;
-		//elapsed.count() restituisce il tempo in secondi
+
     saveTimeToFile(dim, elapsed.count(), "csv/inversion_OpenMP.csv");
 
+    //Free because we will reallocate memory in the next for step
 		free(A);
 		free(B);
 		free(C);
@@ -116,26 +120,28 @@ int main(int argc, char **argv){
 	return 0;
 }
 
-//INVERSIONE
+//INVERSION
 void mat_inv(double **M, double **D, long dim){
   double p;
-  int i,j,k;
-  for(int z=0; z<2; z++){
-    //riduci a triangolare superiore
-    for(k=0; k<dim; k++){ //foreach row
+  for(int z=0; z<2; z++){ //done two times:
+    //reduce M to upper triangular 
+    for(int k=0; k<dim; k++){ //foreach row
       p = M[k][k];
+      //The 'pragma' line creates 4 threads and splits the next for between them
+      //Every thread has his own 'j' and 'i' variables
       #pragma omp parallel for private(j,i)
-      for(j=k; j<dim; j++){ //foreach thread column
+      for(int j=k; j<dim; j++){ //foreach column
         M[k][j] = M[k][j]/p;
         D[k][j] = D[k][j]/p;
-        for(i=k+1;i<dim;i++){
+        for(int i=k+1;i<dim;i++){ //for every element
           M[i][j] -= M[i][k]*M[k][j];
           D[i][j] -= M[i][k]*D[k][j];
         }
       }
     }
 
-    //trasponi le matrici M e D
+    //traspose M and D, the whole function could be made faster
+    //by playing with the indexes instead of reducing the matrix two times
     #pragma omp parallel for private(j,i)
     for(i=0;i<dim-1;i++){
       M[i][i] = 1;
@@ -150,9 +156,9 @@ void mat_inv(double **M, double **D, long dim){
   return;
 }
 
-//MOLTIPLICAZIONE
+//MOLTIPLICATION
 void mat_mul(int **A,int **B, int** prodotto, long n){
-    // *** Moltiplicazione Tra Matrice A*** e B*** //  
+
   int i,j,k;
   #pragma omp parallel for private(i,j,k)
   for (i = 0; i < n; i++) {
