@@ -8,23 +8,23 @@
 using namespace std;
 
 /* From utils.cpp */
-extern int** createRandomMatrix(long, long, bool);
-extern double** createIdentityMatrix(long);
-extern int** createEmpyMatrix(long);
-extern void print_matrix(int**, long, char*);
-extern void print_matrix(double**, long, char*);
-extern void saveTimeToFile(long, double, char*);
+extern float** createRandomMatrix(long, long, bool);
+extern float** createIdentityMatrix(long);
+extern float** createEmptyMatrix(long);
+extern void print_matrix(float**, long, char*);
+extern void saveTimeToFile(long, float, char*);
+extern bool multipliedMatrixIsCorrect(float**, float**, float**, long);
 
 /* For inverting and multiplicating matrices, these functions will be timed */
-void mat_inv(double**, double**, long);
-void mat_mul(int**, int**, int**, long);
+void mat_inv(float**, float**, long);
+void mat_mul(float**, float**, float**, long);
 
 int main(int argc, char **argv){
   long min_dim, max_dim, step, dim; //Used to determine what matrix dimensions we will test
   chrono::high_resolution_clock::time_point start, finish; //Used to implement the timing
   chrono::duration<double> elapsed; //Will contain the elapsed time
-  int **A, **B, **C; //After multiplicating, C=A*B
-  double **D, **M; //M=A, D=Identity and after inversion: D = A^-1, M=Identity
+  float **A, **B, **C; //After multiplicating, C=A*B
+  float **D, **M; //M=A, D=Identity and after inversion: D = A^-1, M=Identity
   
   omp_set_num_threads(4); //Set the number of threads to 4, you might want to change this
 
@@ -44,13 +44,13 @@ int main(int argc, char **argv){
 
 		A = createRandomMatrix(dim, dim, true); // true means "invertible"
 		B = createRandomMatrix(dim, dim, false); // false means "not invertible"
-    C = createEmpyMatrix(dim);
+    C = createEmptyMatrix(dim);
     D = createIdentityMatrix(dim);
 
     //M=A
-    M = new double*[dim];
+    M = new float*[dim];
     for (int h = 0; h < dim; h++){
-      M[h] = new double[dim];
+      M[h] = new float[dim];
       for (int w = 0; w < dim; w++)
         M[h][w] = A[h][w];
     }
@@ -73,8 +73,12 @@ int main(int argc, char **argv){
 		finish = chrono::high_resolution_clock::now(); //end time measure
 
     if(DEBUG){
-      
       print_matrix(C,dim,"C ");
+      bool correct = multipliedMatrixIsCorrect(A,B,C,dim);
+      if(!correct){
+            cout << "Multiplied matrix is not correct, aborting..." << endl;
+            return -1;
+      }
     }
 
 		elapsed = finish - start; //compute time difference
@@ -100,6 +104,11 @@ int main(int argc, char **argv){
     if(DEBUG){
       print_matrix(M,dim,"M ");
       print_matrix(D,dim,"D ");
+      bool correct = multipliedMatrixIsCorrect(A,D,M,dim);
+      if(!correct){
+        cout << "Multiplied matrix is not correct, aborting..." << endl;
+        return -1;
+      }
     }
 
 		elapsed = finish - start; //compute time difference
@@ -120,8 +129,9 @@ int main(int argc, char **argv){
 }
 
 //INVERSION
-void mat_inv(double **M, double **D, long dim){
-  double p;
+void mat_inv(float **M, float **D, long dim){
+  float p;
+  int i,j;
   for(int z=0; z<2; z++){ //done two times:
     //reduce M to upper triangular 
     for(int k=0; k<dim; k++){ //foreach row
@@ -129,10 +139,10 @@ void mat_inv(double **M, double **D, long dim){
       //The 'pragma' line creates 4 threads and splits the next for between them
       //Every thread has his own 'j' and 'i' variables
       #pragma omp parallel for private(j,i)
-      for(int j=k; j<dim; j++){ //foreach column
+      for(j=k; j<dim; j++){ //foreach column
         M[k][j] = M[k][j]/p;
         D[k][j] = D[k][j]/p;
-        for(int i=k+1;i<dim;i++){ //for every element
+        for(i=k+1;i<dim;i++){ //for every element
           M[i][j] -= M[i][k]*M[k][j];
           D[i][j] -= M[i][k]*D[k][j];
         }
@@ -156,7 +166,7 @@ void mat_inv(double **M, double **D, long dim){
 }
 
 //MOLTIPLICATION
-void mat_mul(int **A,int **B, int** prodotto, long n){
+void mat_mul(float **A,float **B, float** prodotto, long n){
 
   int i,j,k;
   #pragma omp parallel for private(i,j,k)

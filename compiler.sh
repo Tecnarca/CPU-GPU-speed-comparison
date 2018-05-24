@@ -23,4 +23,4 @@ g++ objects/monocore.o objects/utils.o -o bin/monocore -lm -std=c++11 #linka mon
 g++ objects/multicore.o objects/utils.o -o bin/multicore -lm -lpthread -std=c++11 #linka multicore e utils per creare l'exe
 g++ objects/cuda.o objects/utils.o -o bin/cuda -lm -L/usr/local/cuda/lib64 -lcudart #linka multicore e utils per creare l'exe (probabilmente mancano delle opzioni)
 g++ objects/cublas.o objects/utils.o -o bin/cublas -lm -L/usr/local/cuda/lib64 -lcusolver -lcudart -lcublas -lopenblas #linka multicore e utils per creare l'exe (probabilmente mancano delle opzioni)
-g++ objects/openmp.o objects/utils.o -o objects/openmp -lm -std=c++11 -fopenmp -lpthread #fopenmp dice al compilatore di parallelizzare i "pragma parallel for"
+g++ objects/openmp.o objects/utils.o -o bin/openmp -lm -std=c++11 -fopenmp -lpthread #fopenmp dice al compilatore di parallelizzare i "pragma parallel for"

@@ -7,23 +7,23 @@
 using namespace std;
 
 /* From utils.cpp */
-extern int** createRandomMatrix(long, long, bool);
-extern double** createIdentityMatrix(long);
-extern int** createEmpyMatrix(long);
-extern void print_matrix(int**, long, char*);
-extern void print_matrix(double**, long, char*);
-extern void saveTimeToFile(long, double, char*);
+extern float** createRandomMatrix(long, long, bool);
+extern float** createIdentityMatrix(long);
+extern float** createEmptyMatrix(long);
+extern float print_matrix(float**, long, char*);
+extern void saveTimeToFile(long, float, char*);
+extern bool multipliedMatrixIsCorrect(float**, float**, float**, long);
 
 /* For inverting and multiplicating matrices, these functions will be timed */
-void mat_inv(double**, double**, long);
-void mat_mul(int**, int**, int**, long);
+void mat_inv(float**, float**, long);
+void mat_mul(float**, float**, float**, long);
 
 int main(int argc, char **argv){
 	long min_dim, max_dim, step, dim; //Used to determine what matrix dimensions we will test
 	chrono::high_resolution_clock::time_point start, finish; //Used to implement the timing
 	chrono::duration<double> elapsed; //Will contain the elapsed time
-	int **A, **B, **C; //After multiplicating, C=A*B
-  double **D, **M; //M=A, D=Identity and after inversion: D = A^-1, M=Identity
+	float **A, **B, **C; //After multiplicating, C=A*B
+  float **D, **M; //M=A, D=Identity and after inversion: D = A^-1, M=Identity
     
 	// Print the usage command if too few parameters were passed
 	if(argc != 4){
@@ -41,13 +41,13 @@ int main(int argc, char **argv){
 
 		A = createRandomMatrix(dim, dim, true); // true means "invertible"
 		B = createRandomMatrix(dim, dim, false); // false means "not invertible"
-    C = createEmpyMatrix(dim);
+    C = createEmptyMatrix(dim);
     D = createIdentityMatrix(dim);
 
     //M = A
-    M = new double*[dim];
+    M = new float*[dim];
     for (int h = 0; h < dim; h++){
-      M[h] = new double[dim];
+      M[h] = new float[dim];
       for (int w = 0; w < dim; w++)
         M[h][w] = A[h][w];
     }
@@ -70,8 +70,12 @@ int main(int argc, char **argv){
 		finish = chrono::high_resolution_clock::now(); //end time measure
 
     if(DEBUG){
-      
       print_matrix(C,dim,"C ");
+      bool correct = multipliedMatrixIsCorrect(A,B,C,dim);
+      if(!correct){
+        cout << "Multiplied matrix is not correct, aborting..." << endl;
+        return -1;
+      }
     }
 
 		elapsed = finish - start; //compute time difference
@@ -97,6 +101,11 @@ int main(int argc, char **argv){
     if(DEBUG){
       print_matrix(M,dim,"M ");
       print_matrix(D,dim,"D ");
+      bool correct = multipliedMatrixIsCorrect(A,D,M,dim);
+      if(!correct){
+        cout << "Multiplied matrix is not correct, aborting..." << endl;
+        return -1;
+      }
     }
 
 		elapsed = finish - start; //compute time difference
@@ -117,8 +126,8 @@ int main(int argc, char **argv){
 }
 
 //INVERSION
-void mat_inv(double **M, double **D, long dim){
-  double p;
+void mat_inv(float **M, float **D, long dim){
+  float p;
   for(int z=0; z<2; z++){ //done two times:
     //reduce M to upper triangular 
     for(int k=0; k<dim; k++){ //foreach row
@@ -149,7 +158,7 @@ void mat_inv(double **M, double **D, long dim){
 }
 
 //MOLTIPLICATION
-void mat_mul(int **A,int **B, int** prodotto, long n){
+void mat_mul(float **A,float **B, float** prodotto, long n){
  
   int i,j,k;
   for (i = 0; i < n; i++) {

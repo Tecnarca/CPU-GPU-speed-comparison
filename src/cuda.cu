@@ -3,21 +3,21 @@
 #include <chrono>
 #include <cstring>
 #include <cmath>
-#define DEBUG 0
+#define DEBUG 1
 //If DEBUG is setted, will print the used matrices and the times on the stdout
 
 using namespace std;
 
 /*function marked with '__global__' are the GPU Kernels*/
 
- __global__ void gaussjordan(double *A,  double *I, int n, int i){
+//This reduces the matrix to upper triangular
+ __global__ void upperReduction(float *A,  float *I, int n, int i){
 
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int col = blockIdx.y * blockDim.y + threadIdx.y;
-    double p;
+    float p;
     //this is still the same gauss jordan algorithm used in other files
-    //only that it does not require transposing the matrix two times
-    if(row<n && col<n) //to ensure we are withing the matrix boundaries
+    if(row<n && col<n) //to ensure we are within the matrix boundaries
         if(row>i){ // limits operation to rows below the pivot point
             p = A[row*n+i]/A[i*n+i];
             I[row*n+col] -= I[i*n+col]*p;  // apply for every row member
@@ -27,8 +27,25 @@ using namespace std;
         }
  }
 
+//Reduces the matrix to lower triangular matrix
+  __global__ void lowerReduction(float *A,  float *I, int n, int i){
 
- __global__ void scale(double *A,  double *I, int h){
+    //same function of before, but row and col are reversed in the 'if' statements
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    int col = blockIdx.y * blockDim.y + threadIdx.y;
+    float p;
+    if(row<n && col<n)
+        if(col>i){
+            p = A[row*n+i]/A[i*n+i];
+            I[row*n+col] -= I[i*n+col]*p;
+            if(row>=i){
+                A[row*n+col] -= A[i*n+col]*p;
+            }
+        }
+ }
+
+//Scales down the matrix in respect of the elements on the diagonal
+ __global__ void scale(float *A,  float *I, int h){
     
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int col = blockIdx.y * blockDim.y + threadIdx.y;
@@ -41,12 +58,12 @@ using namespace std;
         }
 }
 
-__global__ void matrixMultiplication(int* A, int* B, int* C, int n) {
+__global__ void matrixMultiplication(float* A, float* B, float* C, int n) {
 
     int row = blockIdx.y*blockDim.y+threadIdx.y;
     int col = blockIdx.x*blockDim.x+threadIdx.x;
 
-    double c=0;
+    float c=0;
 
     // each thread computes one element of the block sub-matrix (and therefore one non-overlapping sub-matrix of C)
 
@@ -61,21 +78,21 @@ __global__ void matrixMultiplication(int* A, int* B, int* C, int n) {
 
 
 /* From utils.cpp */
-extern int* createRandomMatrixArray(long, long, bool);
-extern double* createIdentityMatrixArray(long);
-extern int* createEmpyMatrixArray(long);
-extern void print_array_as_matrix(int*, long, char*);
-extern void print_array_as_matrix(double*, long, char*);
-extern void saveTimeToFile(long, double, char*);
+extern float* createRandomMatrixArray(long, long, bool);
+extern float* createIdentityMatrixArray(long);
+extern float* createEmptyMatrixArray(long);
+extern void print_array_as_matrix(float*, long, char*);
+extern void saveTimeToFile(long, float, char*);
+extern bool multipliedMatrixCudaIsCorrect(float*, float*, float*, long);
 
 
 int main(int argc, char **argv){
 
     long min_dim, max_dim, step, dim, data_size; //Used to determine what matrix dimensions we will test
-    int *A, *B, *C; //After multiplicating, C=A*B
-    double *D, *M; //M=A, D=Identity and after inversion: D = A^-1, M=Identity
-    int *gpu_A, *gpu_B, *gpu_C; //GPU Matrices
-    double *gpu_inv_A, *gpu_inv_I;
+    float *A, *B, *C; //After multiplicating, C=A*B
+    float *D, *M; //M=A, D=Identity and after inversion: D = A^-1, M=Identity
+    float *gpu_A, *gpu_B, *gpu_C; //GPU Matrices
+    float *gpu_inv_A, *gpu_inv_I;
     float time; //Will contain elapsed time returned by CUDA events, in milliseconds
     chrono::high_resolution_clock::time_point start, finish; //Used to implement the timing
     chrono::duration<double> elapsed1, elapsed2; //Will contain the elapsed time  
@@ -100,18 +117,18 @@ int main(int argc, char **argv){
         //Matrices are created and used as arrays
         A = createRandomMatrixArray(dim, dim, true); //true means "invertible"
         B = createRandomMatrixArray(dim, dim, false); //true means "not invertible"
-        C = createEmpyMatrixArray(dim);
+        C = createEmptyMatrixArray(dim);
 
         //Number of bytes contained in one matrix
-        data_size = dim*dim*sizeof(int);
+        data_size = dim*dim*sizeof(float);
 
         dim3 threadsPerBlock(dim, dim);
         dim3 blocksPerGrid(1, 1);
         if (dim*dim > 512){ //total amount of threads in a single block cannot exceed 1024 (with a maxwell nVidia GPU)
             threadsPerBlock.x = 512; 
             threadsPerBlock.y = 512;
-            blocksPerGrid.x = ceil(double(dim)/double(threadsPerBlock.x));
-            blocksPerGrid.y = ceil(double(dim)/double(threadsPerBlock.y));
+            blocksPerGrid.x = ceil(float(dim)/float(threadsPerBlock.x));
+            blocksPerGrid.y = ceil(float(dim)/float(threadsPerBlock.y));
         }
 
         //allocate memory to contain the matrices
@@ -206,7 +223,12 @@ int main(int argc, char **argv){
        saveTimeToFile(dim, elapsed1.count()+elapsed2.count()+time/1000, "csv/multiplication_CUDA.csv");
 
         if(DEBUG){
-            print_array_as_matrix(C,dim,"MULT ");
+            print_array_as_matrix(C,dim,"C ");
+            bool correct = multipliedMatrixCudaIsCorrect(A,B,C,dim);
+            if(!correct){
+                cout << "Multiplied matrix is not correct, aborting..." << endl;
+                return -1;
+            }
         }
 
 
@@ -223,14 +245,14 @@ int main(int argc, char **argv){
         D = createIdentityMatrixArray(dim);
 
         //M=A
-        M = new double[dim*dim];
+        M = new float[dim*dim];
         for (int h = 0; h < dim; h++){
             for (int w = 0; w < dim; w++)
                     M[h*dim+w] = A[h*dim+w];
         }
 
         //Number of bytes contained in one matrix
-        data_size = dim*dim*sizeof(double);
+        data_size = dim*dim*sizeof(float);
 
         //allocate memory to contain the matrices
         status = cudaMalloc((void**) &gpu_inv_A, data_size);
@@ -269,9 +291,12 @@ int main(int argc, char **argv){
         //NOTE: every kernel call waits for the previous one to finish
 
         for(int i=0;i<dim;i++){ 
-            gaussjordan <<< blocksPerGrid, threadsPerBlock >>> (gpu_inv_A, gpu_inv_I, dim, i);
+            upperReduction <<< blocksPerGrid, threadsPerBlock >>> (gpu_inv_A, gpu_inv_I, dim, i);
         }
-        
+        for(int i=0;i<dim;i++){ 
+            lowerReduction <<< blocksPerGrid, threadsPerBlock >>> (gpu_inv_A, gpu_inv_I, dim, i);
+        }
+
         //this function scales the starting A matrix to the identity, so "I" will be the correct inverse
         scale <<< blocksPerGrid, threadsPerBlock >>> (gpu_inv_A, gpu_inv_I, dim); //reduce matrix to diagonal
 
@@ -308,6 +333,11 @@ int main(int argc, char **argv){
         if(DEBUG){
             print_array_as_matrix(D,dim,"D ");
             print_array_as_matrix(M,dim,"M ");
+            bool correct = multipliedMatrixCudaIsCorrect(A,D,M,dim);
+            if(!correct){
+                cout << "Multiplied matrix is not correct, aborting..." << endl;
+                return -1;
+            }
         }
 
         //deallocate things

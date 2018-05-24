@@ -9,12 +9,12 @@
 using namespace std;
 
 /* From utils.cpp */
-extern int** createRandomMatrix(long, long, bool);
-extern double** createIdentityMatrix(long);
-extern void print_matrix(int**, long, char*);
-extern void print_matrix(double**, long, char*);
-extern int** createEmpyMatrix(long);
-extern void saveTimeToFile(long, double, char*);
+extern float** createRandomMatrix(long, long, bool);
+extern float** createIdentityMatrix(long);
+extern void print_matrix(float**, long, char*);
+extern float** createEmptyMatrix(long);
+extern void saveTimeToFile(long, float, char*);
+extern bool multipliedMatrixIsCorrect(float**, float**, float**, long);
 
 /* For inverting and multiplicating matrices, these functions will be timed */
 /* pThread requires them to have type and parameters be void* */
@@ -22,8 +22,8 @@ void* thread_mat_inv(void*);
 void* thread_mat_mul(void*);
 
 //Global variables because every thread will operate on them
-int **A, **B, **C; //After multiplicating, C=A*B
-double **D, **M; //M=A, D=Identity and after inversion: D = A^-1, M=Identity
+float **A, **B, **C; //After multiplicating, C=A*B
+float **D, **M; //M=A, D=Identity and after inversion: D = A^-1, M=Identity
 long dim; //dim of the currently used matrices
 int thread_number;
 
@@ -65,7 +65,7 @@ int main(int argc, char **argv){
 		//ToDo: parallelizzare anche questa funzione (?)
 		A = createRandomMatrix(dim, dim, true); // true means "invertible"
 		B = createRandomMatrix(dim, dim, false); // true means "not invertible"
-		C = createEmpyMatrix(dim);
+		C = createEmptyMatrix(dim);
 		D = createIdentityMatrix(dim);
 
 		if(DEBUG){
@@ -100,7 +100,12 @@ int main(int argc, char **argv){
 		finish = chrono::high_resolution_clock::now(); //end time measure
 
 		if(DEBUG){
-    		print_matrix(C,dim,"MULT ");
+    		print_matrix(C,dim,"C ");
+    		bool correct = multipliedMatrixIsCorrect(A,B,C,dim);
+      		if(!correct){
+       			cout << "Multiplied matrix is not correct, aborting..." << endl;
+        		return -1;
+      		}
   		}
 
 		elapsed = finish - start; //compute time difference
@@ -111,9 +116,9 @@ int main(int argc, char **argv){
 		saveTimeToFile(dim, elapsed.count(), "csv/multiplication_MultiThread.csv");
 
 		//M = A
-      	M = new double*[dim];
+      	M = new float*[dim];
       	for (int h = 0; h < dim; h++){
-        	M[h] = new double[dim];
+        	M[h] = new float[dim];
         	for (int w = 0; w < dim; w++)
                 	M[h][w] = A[h][w];
       	}
@@ -146,6 +151,11 @@ int main(int argc, char **argv){
 		if(DEBUG){
     		print_matrix(D,dim,"D ");
     		print_matrix(M,dim,"M ");
+    		bool correct = multipliedMatrixIsCorrect(A,D,M,dim);
+      		if(!correct){
+        		cout << "Multiplied matrix is not correct, aborting..." << endl;
+        		return -1;
+      		}
   		}
 
 		elapsed = finish - start; //compute time difference
@@ -181,7 +191,7 @@ void* thread_mat_mul(void* params) {
 
 void* thread_mat_inv(void* params) {
 	coord *v = (coord*)params; //casting the parameters back to the right type
-	double p;
+	float p;
 
 	for(int z=0; z<2; z++){ //done two times:
 		//reduce M to upper triangular 

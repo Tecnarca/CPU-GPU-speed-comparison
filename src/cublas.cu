@@ -6,28 +6,29 @@
 #include <iostream>
 #include <cstring>
 #include <cmath>
-#define DEBUG 0
+#define DEBUG 1
 //If DEBUG is setted, will print the used matrices and the times on the stdout
 
 using namespace std;
 
 /* From utils.cpp */
-extern void print_array_as_matrix(int*, long, char*);
-extern void print_array_as_matrix(float*, long, char*);
-extern int* createRandomMatrixArray(long, long, bool);
-extern void saveTimeToFile(long, double, char*);
+extern void print_array_as_matrixT(float*, long, char*);
+extern float* createRandomMatrixArray(long, long, bool);
+extern float* createEmptyMatrixArray(long);
+extern float* createIdentityMatrixArray(long);
+extern void saveTimeToFile(long, float, char*);
+extern bool multipliedMatrixCublasIsCorrect(float*, float*, float*, long);
 
 int main(int argc, char **argv){
 
     long min_dim, max_dim, step, dim, data_size, smaller_size;
-    int *S; //used to avoid overloading the 'utils' functions once again
-    float *A, *B, *C; //Cublas requires matrices to be float* type, C=A*B when multiplicating and C=A^-1 when inverting
+    float *A, *B, *C; //Cublas single precision requires matrices to be float* type, C=A*B when multiplicating and C=A^-1 when inverting
     float *gpu_A, *gpu_B, *gpu_C, *gpu_Work;//GPU Matrices
     int *gpu_pivot , *gpu_info , Lwork;   // pivots, info, worksp. size, used by cublas
     int info_gpu = 0;
     float time1,time2,time3; //Will contain elapsed time returned by CUDA events, in milliseconds
     float  alfa=1.0f; //costants for the cublas solver
-    float  beta=0.0f;
+    float  beta=0.f;
     int  incx=1, incy =1;
     cudaError_t status; //variable for error handling
     cudaEvent_t begin, stop; //used to time the functions on the GPU
@@ -52,19 +53,12 @@ int main(int argc, char **argv){
     for(dim=min_dim;dim<max_dim;dim+=step){
 
         //Matrix as a sequential array, copied back from "S"
-        S = createRandomMatrixArray(dim, dim, true); //true means "invertible"
-        A = new float[dim*dim];
-        for(int i=0;i<dim;i++) for(int j=0;j<dim;j++) A[i*dim+j] = (float)S[i*dim+j];
-        free(S);
-        S = createRandomMatrixArray(dim, dim, false); //false means "invertible"
-        B = new float[dim*dim];
-        for(int i=0;i<dim;i++) for(int j=0;j<dim;j++) B[i*dim+j] = (float)S[i*dim+j];
-        free(S);
-        C = new float[dim*dim];
-        for(int i=0;i<dim;i++) for(int j=0;j<dim;j++) C[i*dim+j] = 0;
-
+        A = createRandomMatrixArray(dim, dim, true); //true means "invertible"
+        B = createRandomMatrixArray(dim, dim, false); //false means "invertible"
+        C = createEmptyMatrixArray(dim);
+ 
         //Number of bytes contained in one matrix
-        data_size = dim*dim*sizeof(float);
+        data_size = dim*dim*sizeof(*A);
 
         //allocate memory to contain the matrices
         status = cudaMalloc((void**) &gpu_A, data_size);
@@ -86,8 +80,8 @@ int main(int argc, char **argv){
         }
 
         if(DEBUG){
-            print_array_as_matrix(A,dim,"A ");
-            print_array_as_matrix(B,dim,"B ");
+            print_array_as_matrixT(A,dim,"A ");
+            print_array_as_matrixT(B,dim,"B ");
         }
 
         //BEGIN MATRICES MULTIPLICATION
@@ -99,10 +93,9 @@ int main(int argc, char **argv){
         //----------------------CUBLAS CHARGE CODE----------------------
         //copy the matrices A and B from RAM to GPU RAM 
 
-        stat = cublasSetMatrix(dim,dim,data_size,A,dim,gpu_A,dim);//a -> gpu_A
-        stat = cublasSetMatrix(dim,dim,data_size,B,dim,gpu_B,dim);//b -> gpu_B
-        stat = cublasSetMatrix(dim,dim,data_size,C,dim,gpu_C,dim);//c -> gpu_C
-
+        stat = cublasSetMatrix(dim,dim,sizeof(*A),A,dim,gpu_A,dim);//a -> gpu_A
+        stat = cublasSetMatrix(dim,dim,sizeof(*B),B,dim,gpu_B,dim);//b -> gpu_B
+        stat = cublasSetMatrix(dim,dim,sizeof(*C),C,dim,gpu_C,dim);//c -> gpu_C
         //----------------------CUBLAS CHARGE CODE----------------------
         cudaDeviceSynchronize(); //to reassure everything is in sync
         cudaEventRecord(stop, 0);
@@ -110,7 +103,7 @@ int main(int argc, char **argv){
         cudaEventElapsedTime( &time1, begin, stop); //compute time difference
 
         if(DEBUG) cout << "MUL_GCHR: With dimension " << dim << ", elapsed time: " <<  time1 << " ms" << endl;
-        
+
         //Save how much time the load took
         saveTimeToFile(dim, time1/1000, "csv/load_multiplication_CUBLAS.csv");     
 
@@ -118,7 +111,6 @@ int main(int argc, char **argv){
         //----------------------CUBLAS PARALLEL CODE----------------------
         //Sgemm is the only function provided to multiply matrices, the formula that follows is:
         // C := alfa*A*B + beta*C (uses C as "bias" matrix and puts the result in C itself)
-        
         stat=cublasSgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,dim,dim,dim,&alfa,gpu_A,dim,gpu_B,dim,&beta,gpu_C,dim);
 
         //----------------------CUBLAS PARALLEL CODE---------------------- 
@@ -138,8 +130,8 @@ int main(int argc, char **argv){
         //----------------------CUBLAS DISCHARGE CODE----------------------
         //Reading and paste back on RAM the result matrix        
 
-        stat=cublasGetMatrix(dim,dim,data_size,gpu_C,dim,C,dim); // gpu_C -> C
-
+        stat=cublasGetMatrix(dim,dim,sizeof(*C),gpu_C,dim,C,dim); // gpu_C -> C
+        
         cudaDeviceSynchronize();
 
         //----------------------CUBLAS DISCHARGE CODE----------------------
@@ -159,7 +151,12 @@ int main(int argc, char **argv){
         saveTimeToFile(dim, (time1+time2+time3)/1000, "csv/multiplication_CUBLAS.csv");
 
         if(DEBUG){
-            print_array_as_matrix(C,dim,"MULT ");
+            print_array_as_matrixT(C,dim,"C ");
+            bool correct = multipliedMatrixCublasIsCorrect(A,B,C,dim);
+            if(!correct){
+                cout << "Multiplied matrix is not correct, aborting..." << endl;
+                return -1;
+            }
         }
 
         //Free useless memory on the GPU and on the RAM
@@ -171,11 +168,8 @@ int main(int argc, char **argv){
         cublasDestroy(handle);   
 
         //BEGIN MATRIX INVERSION
-        B = new float[dim];
-        C = new float[dim];
-
-        for(int i=0;i<dim;i++) B[i] = 0.0; //initialize B to zero
-        for(int i=0;i<dim;i++) C[i] = 1.0; //vector of ones
+        B = createIdentityMatrixArray(dim);
+        C = createEmptyMatrixArray(dim);
 
         //creating cusolver handler
         cusolverStatus = cusolverDnCreate(&cuhandle); 
@@ -279,7 +273,7 @@ int main(int argc, char **argv){
         saveTimeToFile(dim, (time1+time2+time3)/1000, "csv/inversion_CUBLAS.csv");
 
         if(DEBUG){
-            print_array_as_matrix(C,dim,"C ");
+            print_array_as_matrixT(C,dim,"C ");
         }
 
         //deallocate things
