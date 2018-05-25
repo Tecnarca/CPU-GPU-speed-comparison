@@ -3,9 +3,9 @@
 #include <cstdlib>
 #include <cmath>
 #include <fstream>
-#define R_MAX 20
-#define eps 0.3f
-/* R_MAX/2 is the biggest number that will appear in the random matrices */
+#define R_MAX 10
+#define eps 0.1f
+/* R_MAX/2 is the biggest number that will appear in the random matrices (outside the diagonal) */
 /* a small R_MAX improves numerical stability when inverting a matrix */
 /* eps is the maximum error allowed when checking for the correctness of the computed matrices */
 
@@ -54,6 +54,8 @@ float** createIdentityMatrix(long dim){
 
       for (int h = 0; h < dim; h++){
         m[h] = new float[dim];
+        for(int l = 0; l < dim; l++)
+          m[h][l] = 0;
         m[h][h] = 1;
       }
 
@@ -112,6 +114,8 @@ float* createIdentityMatrixArray(long dim){
       m = new float[dim*dim];
 
       for (int h = 0; h < dim; h++){
+        for(int j = 0; j < dim; j++)
+          m[h*dim+j] = 0;
         m[h*(dim+1)] = 1;
       }
 
@@ -179,7 +183,7 @@ bool multipliedMatrixIsCorrect(float **A, float **B, float **C, long dim){
       for (int k = 0; k < dim; k++) {
         check[i][j] += A[i][k] * B[k][j];
       }
-      if(check[i][j]>C[i][j]+eps && check[i][j]<C[i][j]-eps){
+      if(fabs(check[i][j]-C[i][j])>eps){
         cout << "Error detected on indexes: " << i << " " << j << endl; 
         free(check);
         return false;
@@ -202,7 +206,7 @@ bool multipliedMatrixCudaIsCorrect(float *A, float *B, float *C, long dim){
       for (int k = 0; k < dim; k++) {
         check[i*dim+j] += A[i*dim+k] * B[k*dim+j];
       }
-      if(check[i*dim+j]>C[i*dim+j]+eps && check[i*dim+j]<C[i*dim+j]-eps){
+      if(fabs(check[i*dim+j]-C[i*dim+j])>eps){
         cout << "Error detected on indexes: " << i << " " << j << endl;
         free(check);
         return false;
@@ -225,7 +229,7 @@ bool multipliedMatrixCublasIsCorrect(float *A, float *B, float *C, long dim){
       for (int k = 0; k < dim; k++) {
         check[j*dim+i] += A[k*dim+i] * B[j*dim+k];
       }
-      if(check[j*dim+i]>C[j*dim+i]+eps && check[j*dim+i]<C[j*dim+i]-eps){
+      if(fabs(check[j*dim+i]-C[j*dim+i])>eps){
         cout << "Error detected on indexes: " << i << " " << j << endl;
         free(check);
         return false;

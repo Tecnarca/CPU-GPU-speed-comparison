@@ -3,7 +3,7 @@
 #include <chrono>
 #include <cstring>
 #include <cmath>
-#define DEBUG 1
+#define DEBUG 0
 //If DEBUG is setted, will print the used matrices and the times on the stdout
 
 using namespace std;
@@ -11,35 +11,35 @@ using namespace std;
 /*function marked with '__global__' are the GPU Kernels*/
 
 //This reduces the matrix to upper triangular
- __global__ void upperReduction(float *A,  float *I, int n, int i){
+ __global__ void upperReduction(float *A,  float *I, int n, int piv){
 
-    int row = blockIdx.x * blockDim.x + threadIdx.x;
-    int col = blockIdx.y * blockDim.y + threadIdx.y;
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
     float p;
     //this is still the same gauss jordan algorithm used in other files
-    if(row<n && col<n) //to ensure we are within the matrix boundaries
-        if(row>i){ // limits operation to rows below the pivot point
-            p = A[row*n+i]/A[i*n+i];
-            I[row*n+col] -= I[i*n+col]*p;  // apply for every row member
-            if(col>=i){ //limits to row members to the right of the pivot
-                A[row*n+col] -= A[i*n+col]*p;  // apply only to members right of pivot
+    if(i<n && j<n) //to ensure we are within the matrix boundaries
+        if(i>piv){ // limits operation to rows below the pivot point
+            p = A[i*n+piv]/A[piv*n+piv];
+            I[i*n+j] -= I[piv*n+j]*p;  // apply for every row member
+            if(j>=piv){ //limits to row members to the right of the pivot
+                A[i*n+j] -= A[piv*n+j]*p;  // apply only to members right of pivot
             }
         }
  }
 
 //Reduces the matrix to lower triangular matrix
-  __global__ void lowerReduction(float *A,  float *I, int n, int i){
+  __global__ void lowerReduction(float *A,  float *I, int n, int piv){
 
-    //same function of before, but row and col are reversed in the 'if' statements
-    int row = blockIdx.x * blockDim.x + threadIdx.x;
-    int col = blockIdx.y * blockDim.y + threadIdx.y;
+    //same function of before, but row and col are reversed
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
     float p;
-    if(row<n && col<n)
-        if(col>i){
-            p = A[row*n+i]/A[i*n+i];
-            I[row*n+col] -= I[i*n+col]*p;
-            if(row>=i){
-                A[row*n+col] -= A[i*n+col]*p;
+    if(i<n && j<n)
+        if(i<piv){
+            p = A[i*n+piv]/A[piv*n+piv];
+            I[i*n+j] -= I[piv*n+j]*p;
+            if(j<=piv){
+                A[i*n+j] -= A[piv*n+j]*p;
             }
         }
  }
@@ -51,11 +51,8 @@ using namespace std;
     int col = blockIdx.y * blockDim.y + threadIdx.y;
 
     if(row<h && col<h) //to ensure we are withing the matrix boundaries
-        if(A[row*(h+1)]!=0){
-            // scale down to identity in each cell
-            I[row*h+col]  /= A[row*(h+1)];
-            A[row*h+col] /= A[row*(h+1)]; 
-        }
+        I[row*h+col]  /= A[row*(h+1)];
+        A[row*h+col] /= A[row*(h+1)];
 }
 
 __global__ void matrixMultiplication(float* A, float* B, float* C, int n) {
@@ -290,10 +287,10 @@ int main(int argc, char **argv){
         //each call computes from a different line of pivot (passed with 'i')
         //NOTE: every kernel call waits for the previous one to finish
 
-        for(int i=0;i<dim;i++){ 
+        for(int i=0;i<dim-1;i++){ 
             upperReduction <<< blocksPerGrid, threadsPerBlock >>> (gpu_inv_A, gpu_inv_I, dim, i);
         }
-        for(int i=0;i<dim;i++){ 
+        for(int i=dim-1;i>0;i--){ 
             lowerReduction <<< blocksPerGrid, threadsPerBlock >>> (gpu_inv_A, gpu_inv_I, dim, i);
         }
 

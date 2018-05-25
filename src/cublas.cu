@@ -6,24 +6,25 @@
 #include <iostream>
 #include <cstring>
 #include <cmath>
-#define DEBUG 1
+#define DEBUG 0
 //If DEBUG is setted, will print the used matrices and the times on the stdout
 
 using namespace std;
 
 /* From utils.cpp */
 extern void print_array_as_matrixT(float*, long, char*);
+extern void print_array_as_matrix(float*, long, char*);
 extern float* createRandomMatrixArray(long, long, bool);
-extern float* createEmptyMatrixArray(long);
 extern float* createIdentityMatrixArray(long);
+extern float* createEmptyMatrixArray(long);
 extern void saveTimeToFile(long, float, char*);
 extern bool multipliedMatrixCublasIsCorrect(float*, float*, float*, long);
 
 int main(int argc, char **argv){
 
     long min_dim, max_dim, step, dim, data_size, smaller_size;
-    float *A, *B, *C; //Cublas single precision requires matrices to be float* type, C=A*B when multiplicating and C=A^-1 when inverting
-    float *gpu_A, *gpu_B, *gpu_C, *gpu_Work;//GPU Matrices
+    float *A, *B, *C, *D; //Cublas single precision requires matrices to be float* type, C=A*B when multiplicating and C=A^-1 when inverting
+    float *gpu_A, *gpu_B, *gpu_C, *gpu_D, *gpu_Work;//GPU Matrices
     int *gpu_pivot , *gpu_info , Lwork;   // pivots, info, worksp. size, used by cublas
     int info_gpu = 0;
     float time1,time2,time3; //Will contain elapsed time returned by CUDA events, in milliseconds
@@ -168,8 +169,8 @@ int main(int argc, char **argv){
         cublasDestroy(handle);   
 
         //BEGIN MATRIX INVERSION
-        B = createIdentityMatrixArray(dim);
         C = createEmptyMatrixArray(dim);
+        D = createIdentityMatrixArray(dim); 
 
         //creating cusolver handler
         cusolverStatus = cusolverDnCreate(&cuhandle); 
@@ -181,7 +182,7 @@ int main(int argc, char **argv){
             cout << cudaGetErrorString(status) << " in " << __FILE__ << " at line " << __LINE__ << endl;
         }
 
-        status = cudaMalloc((void**) &gpu_B, dim*sizeof(float));  
+        status = cudaMalloc((void**) &gpu_D, dim*dim*sizeof(float));  
         
         if(status!=cudaSuccess){
             cout << cudaGetErrorString(status) << " in " << __FILE__ << " at line " << __LINE__ << endl;
@@ -207,12 +208,7 @@ int main(int argc, char **argv){
         //copy the matrices A and B from RAM to GPU RAM         
 
         status = cudaMemcpy(gpu_A, A, data_size,cudaMemcpyHostToDevice); //copy gpu_A <-A
-
-        //B = A*C on the CPU, the resulting vector is used later by the cuSolver
-        cblas_sgemv(CblasColMajor,CblasNoTrans,dim,dim,alfa,A,dim,C,incx,beta,B,incy);
-
-        status = cudaMemcpy(gpu_B, B, smaller_size,cudaMemcpyHostToDevice); //copy gpu_B <-B
-
+        status = cudaMemcpy(gpu_D, D, data_size,cudaMemcpyHostToDevice); //copy gpu_D <-D
         cusolverStatus = cusolverDnSgetrf_bufferSize(cuhandle,dim,dim,gpu_A,dim,&Lwork); //compute  buffer  size  and  prep.memory
 
         //----------------------CUBLAS CHARGE CODE----------------------
@@ -238,7 +234,7 @@ int main(int argc, char **argv){
         //Reference: https://docs.nvidia.com/cuda/cusolver/index.html#cuds-lt-t-gt-getrs
 
         cusolverStatus = cusolverDnSgetrf(cuhandle,dim,dim,gpu_A,dim,gpu_Work,gpu_pivot,gpu_info);
-        cusolverStatus = cusolverDnSgetrs(cuhandle, CUBLAS_OP_N,dim,1,gpu_A,dim,gpu_pivot,gpu_B,dim,gpu_info);
+        cusolverStatus = cusolverDnSgetrs(cuhandle, CUBLAS_OP_N,dim,dim,gpu_A,dim,gpu_pivot,gpu_D,dim,gpu_info);
 
         //----------------------CUBLAS PARALLEL CODE----------------------
 
@@ -257,7 +253,7 @@ int main(int argc, char **argv){
 
         status = cudaMemcpy (&info_gpu , gpu_info , sizeof(int), cudaMemcpyDeviceToHost );
         if(DEBUG) cout << "after getrf+getrs: info_gpu = " << info_gpu << endl;
-        status = cudaMemcpy(C, gpu_B , dim*sizeof(float), cudaMemcpyDeviceToHost);
+        status = cudaMemcpy(C, gpu_D , dim*dim*sizeof(float), cudaMemcpyDeviceToHost);
 
         cudaDeviceSynchronize();
 
@@ -273,19 +269,25 @@ int main(int argc, char **argv){
         saveTimeToFile(dim, (time1+time2+time3)/1000, "csv/inversion_CUBLAS.csv");
 
         if(DEBUG){
+            print_array_as_matrix(D,dim,"D ");
             print_array_as_matrixT(C,dim,"C ");
+            bool correct = multipliedMatrixCublasIsCorrect(A,C,D,dim);
+            if(!correct){
+                cout << "Multiplied matrix is not correct, aborting..." << endl;
+                return -1;
+            }
         }
 
         //deallocate things
 
         cudaFree(gpu_A);
-        cudaFree(gpu_B);
+        cudaFree(gpu_D);
         cudaFree(gpu_pivot);
         cudaFree(gpu_info);
         cudaFree(gpu_Work);
         free(A);
-        free(B);
         free(C);
+        free(D);
         cusolverStatus = cusolverDnDestroy(cuhandle);
     }
  

@@ -191,36 +191,46 @@ void* thread_mat_mul(void* params) {
 
 void* thread_mat_inv(void* params) {
 	coord *v = (coord*)params; //casting the parameters back to the right type
-	float p;
+	double s;
 
-	for(int z=0; z<2; z++){ //done two times:
-		//reduce M to upper triangular 
-		for(int k=0; k<dim; k++){ //foreach row
-			//required sync accross all threads
-			//if not reassured, one thread will start overwriting a row currently used from another thread
-			pthread_barrier_wait(&barrier); 
-			p = M[k][k];
-			for(int j=k+v->x; j<dim; j+=thread_number){ //foreach thread column
-				M[k][j] /= p;
-				D[k][j] /= p;
-				for(int i=k+1;i<dim;i++){ //for every element
-					M[i][j] -= M[i][k]*M[k][j];
-					D[i][j] -= M[i][k]*D[k][j];
-				}
-			}
-		}
+		    //reduce M to upper triangular 
+		    for(int piv=0; piv<dim; piv++){ //foreach row
+		      //required sync accross all threads
+			  //if not reassured, one thread will start overwriting a row currently used from another thread
+			  pthread_barrier_wait(&barrier);
+		      for(int i=piv+1+v->x; i<dim; i+=thread_number){ //foreach column
+		        s = (double)M[i][piv]/M[piv][piv];
+		        for(int j=0;j<dim;j++){ //for every element
+		          D[i][j] -= (float)s*D[piv][j];
+		          if(j>=piv) M[i][j] -= s*M[piv][j];
+		        }
+		      }
+		    }
 
-		//traspose M and D, the whole function could be made faster
-    	//by playing with the indexes instead of reducing the matrix two times
-    	for(int i=0;i<dim-1;i+=thread_number){
-			M[i][i] = 1;
-			for(int j=i+1; j<dim; j++){
-				M[i][j] = 0;
-				swap(M[i][j],M[j][i]);
-				swap(D[i][j],D[j][i]);
-			}
-		}
-	}
+		    //reduce M to lower triangular
+		    //the scaling operation is done within the first for, no need for another one
+		    for(int piv=dim-1; piv>=0; piv--){ //foreach row
+		      //required sync accross all threads
+			  //if not reassured, one thread will start overwriting a row currently used from another thread
+			  pthread_barrier_wait(&barrier);
+		      for(int i=v->x; i<piv; i+=thread_number){ //foreach column
+		        s = (double)M[i][piv]/M[piv][piv];
+		        for(int j=0;j<dim;j++){ //for every element
+		          D[i][j] -= (float)s*D[piv][j];
+		          if(j<=piv) M[i][j] -= s*M[piv][j];
+		        }
+		      }
+		    }
+
+			//scales down the matrix
+		    for(int i=v->x;i<dim;i+=thread_number){
+		      s = M[i][i];
+		      for(int j=0;j<dim;j++){
+		        D[i][j]/=s;
+		        M[i][j]/=s;
+		      }
+		    }
+
 
 	pthread_exit((void*)0);
 }

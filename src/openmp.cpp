@@ -130,37 +130,43 @@ int main(int argc, char **argv){
 
 //INVERSION
 void mat_inv(float **M, float **D, long dim){
-  float p;
+  double s;
   int i,j;
-  for(int z=0; z<2; z++){ //done two times:
+
     //reduce M to upper triangular 
-    for(int k=0; k<dim; k++){ //foreach row
-      p = M[k][k];
-      //The 'pragma' line creates 4 threads and splits the next for between them
-      //Every thread has his own 'j' and 'i' variables
-      #pragma omp parallel for private(j,i)
-      for(j=k; j<dim; j++){ //foreach column
-        M[k][j] = M[k][j]/p;
-        D[k][j] = D[k][j]/p;
-        for(i=k+1;i<dim;i++){ //for every element
-          M[i][j] -= M[i][k]*M[k][j];
-          D[i][j] -= M[i][k]*D[k][j];
+    for(int piv=0; piv<dim; piv++){ //foreach row
+      #pragma omp parallel for private(i,j,s)
+      for(int i=piv+1; i<dim; i++){ //foreach column
+        s = (double)M[i][piv]/M[piv][piv];
+        for(int j=0;j<dim;j++){ //for every element
+          D[i][j] -= (float)s*D[piv][j];
+          if(j>=piv) M[i][j] -= s*M[piv][j];
         }
       }
     }
 
-    //traspose M and D, the whole function could be made faster
-    //by playing with the indexes instead of reducing the matrix two times
-    #pragma omp parallel for private(j,i)
-    for(i=0;i<dim-1;i++){
-      M[i][i] = 1;
-      for(j=i+1; j<dim; j++){
-        M[i][j]= 0;
-        swap(M[i][j],M[j][i]);
-        swap(D[i][j],D[j][i]);
+    //reduce M to lower triangular
+    //the scaling operation is done within the first for, no need for another one
+    for(int piv=dim-1; piv>=0; piv--){ //foreach row
+      #pragma omp parallel for private(i,j,s)
+      for(int i=0; i<piv; i++){ //foreach column
+        s = (double)M[i][piv]/M[piv][piv];
+        for(int j=0;j<dim;j++){ //for every element
+          D[i][j] -= (float)s*D[piv][j];
+          if(j<=piv) M[i][j] -= s*M[piv][j];
+        }
       }
     }
-  }
+    
+    //scales down the matrix
+    for(int i=0;i<dim;i++){
+      s = M[i][i];
+      #pragma omp parallel for private(j)
+      for(int j=0;j<dim;j++){
+        D[i][j]/=s;
+        M[i][j]/=s;
+      }
+    }
 
   return;
 }

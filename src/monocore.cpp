@@ -127,32 +127,39 @@ int main(int argc, char **argv){
 
 //INVERSION
 void mat_inv(float **M, float **D, long dim){
-  float p;
-  for(int z=0; z<2; z++){ //done two times:
+  double s;
+
     //reduce M to upper triangular 
-    for(int k=0; k<dim; k++){ //foreach row
-      p = M[k][k];
-      for(int j=k; j<dim; j++){ //foreach column
-        M[k][j] = M[k][j]/p;
-        D[k][j] = D[k][j]/p;
-        for(int i=k+1;i<dim;i++){ //for every element
-          M[i][j] -= M[i][k]*M[k][j];
-          D[i][j] -= M[i][k]*D[k][j];
+    for(int piv=0; piv<dim; piv++){ //foreach row
+      for(int i=piv+1; i<dim; i++){ //foreach column
+        s = (double)M[i][piv]/M[piv][piv];
+        for(int j=0;j<dim;j++){ //for every element
+          D[i][j] -= (float)s*D[piv][j];
+          if(j>=piv) M[i][j] -= s*M[piv][j];
         }
       }
     }
 
-    //traspose M and D, the whole function could be made faster
-    //by playing with the indexes instead of reducing the matrix two times
-    for(int i=0;i<dim-1;i++){
-      M[i][i] = 1;
-      for(int j=i+1; j<dim; j++){
-        M[i][j]= 0;
-        swap(M[i][j],M[j][i]);
-        swap(D[i][j],D[j][i]);
+    //reduce M to lower triangular
+    //the scaling operation is done within the first for, no need for another one
+    for(int piv=dim-1; piv>=0; piv--){ //foreach row
+      for(int i=0; i<piv; i++){ //foreach column
+        s = (double)M[i][piv]/M[piv][piv];
+        for(int j=0;j<dim;j++){ //for every element
+          D[i][j] -= (float)s*D[piv][j];
+          if(j<=piv) M[i][j] -= s*M[piv][j];
+        }
       }
     }
-  }
+    
+    //scales down the matrix
+    for(int i=0;i<dim;i++){
+      s = M[i][i];
+      for(int j=0;j<dim;j++){
+        D[i][j]/=s;
+        M[i][j]/=s;
+      }
+    }
 
   return;
 }
