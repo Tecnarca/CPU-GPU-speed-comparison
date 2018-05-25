@@ -23,5 +23,5 @@ for mode in types:
 	plt.title(mode[:-5])
 	plt.legend(loc='upper left')
 	plt.xlabel("Matrix size")
-	plt.ylabel("Time")
+	plt.ylabel("Time (s)")
 plt.show()
