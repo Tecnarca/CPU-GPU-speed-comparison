@@ -13,31 +13,48 @@ On the x-axis there are Matrix size, on the y-axis there are times.
 
 # How to compile programs
 
-All the commands to compile and run the programs are wirtten in:
+Before compiling, you might want to set the `DEBUG` variable in any cpp or cu file to 1, this will show the various matrices used during the program execution.
 
->compile.sh
+All the commands to compile the programs are wirtten in:
 
-Where is possible to find all the command to compile each program with the relative libraries and all the useful tips to run the file correctly.
+>compiler.sh
 
-For example:
+Further instructions on how the programs were compiled, can be found inside that file. To run it, execute the followin in a terminal:
 
 ```
-mkdir -p objects/
-...
-nvcc -c src/cublas.cu -o objects/cublas.o -std=c++11 -w
-...
-g++ -c src/utils.cpp -o objects/utils.o -std=c++11
+chmod +x compiler.sh
+./compiler.sh
 ```
-To use the compiled version of the files, it's possible to check the missing libraries by running the command:
+The executable files will be in the `bin/` folder.
+
+# How to run the programs
+
+We provide the latest compiled versions of the programs, with the debug variable unset.
+To use the compiled version of the single files, located in `bin/`, you might want to check for missing libraries by running the command:
 
 `ldd bin/*`
 
-Or it's possible to check a specific file (ex: FILENAME), running the command:
+Or it's possible to check a specific executable (ex: FILENAME), running the command:
 
 `ldd bin/FILENAME`
 
+If you have all the required libraries, you can run every program using the `run_all.sh` script. You must pass to the script three integer parameters: 
+> SMALLER_MATRIX_SIZE: the smallest matrix the programs will multiply and invert
+> BIGGEST_MATRIX_SIZE: the biggest matrix the programs will multiply and invert
+> GROWING_STEP: the programs will keep adding this number to SMALLER_MATRIX_SIZE and executing multiplication and inversion, until it reaches BIGGEST_MATRIX_SIZE
+
+You can run the programs with:
+
+```
+chmod +x run_all.sh
+./compiler.sh [SMALLER_MATRIX_SIZE] [BIGGEST_MATRIX_SIZE] [GROWING_STEP]
+```
+You can found further instructions on how to run single programs inside the `run_all.sh` script.
+
+If no `DEBUG` variable is setted, almost no output will show. At the end of the execution, you will have a `csv/` folder, containing several files that are used to track the executing times of each code section, as described below. 
+
 # graph_plot.py
 
-To be contiued...
+To be contiued... (spiegare come funziona graph plot e mostrare il plot che abbiamo trovato noi)
 
 
