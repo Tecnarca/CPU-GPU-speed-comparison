@@ -67,9 +67,9 @@ If no `DEBUG` variable is setted, almost no output will show. At the end of the 
 To be contiued... (spiegare come funziona graph plot e mostrare il plot che abbiamo trovato noi)
 
 ## Built with
-* [CUDA 9.1] (https://developer.nvidia.com/cuda-toolkit)
-* [OpenMP] (https://www.openmp.org/)
-* [pThread] (http://man7.org/linux/man-pages/man7/pthreads.7.html)
+* [CUDA 9.1](https://developer.nvidia.com/cuda-toolkit)
+* [OpenMP](https://www.openmp.org/)
+* [pThread](http://man7.org/linux/man-pages/man7/pthreads.7.html)
 
 
 
