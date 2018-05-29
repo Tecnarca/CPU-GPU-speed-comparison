@@ -62,15 +62,16 @@ You can found further instructions on how to run single programs inside the `run
 
 If no `DEBUG` variable is setted, almost no output will show. At the end of the execution, you will have a `csv/` folder, containing several files that are used to track the executing times of each code section, as described below. 
 
-## graph_plot.py
+## Plotting the data
 
-By running the python script with the command
+By running the `graph_plot.py` script with the command
 
 ```
 python graph_plot.py
 ```
 
-You can plot the data stored inside the `csv/` folder. 
+You can plot the data stored inside the `csv/` folder. More information on how to edit this program can be found in the file itself.
+
 This will show many plots, each one with matrix dimension (only the width is shown, as they are square matrices) on the x-axis and times (in seconds) on y-axis:
 
 * The `multiplication_` and `inversion_` ones shows how much time every program spent computing the matrices inversion and multiplication
