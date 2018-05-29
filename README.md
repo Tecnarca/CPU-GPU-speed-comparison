@@ -11,6 +11,10 @@ With a Python script, all execution and transfer time are plotted.
 
 On the x-axis there are Matrix size, on the y-axis there are times.
 
+![Plotted data](curves.png?raw=true "Plots")
+
+More information on how to read the data plots can be found below, in the `Plotting the Data` section.
+
 ## How to compile programs
 
 Before compiling, you might want to set the `DEBUG` variable in any cpp or cu file to 1, this will show the various matrices used during the program execution.
@@ -78,9 +82,7 @@ This will show many plots, each one with matrix dimension (only the width is sho
 * The `multiplication_CU` and `inversion_CU` ones shows how much time CUDA (the 'DA' line) and CUBLAS (the 'BLAS' line) programs spent in computing the matrices inversion and multiplication
 *The four graphs on the second row, shows how much time of the total computation was spent for passing the matrices values to the GPU (`load_multiplication_` and `load_inversion_`) and to read the resulting matrices back (`read_multiplication_` and `load_inversion_`)
 
-This is the plots we generated running this project on Debian Wheezy with an Intel Core i5 4690@3.5GHz CPU and nVidia GeForce GTX970 GPU:
-
-![Plotted data](curves.png?raw=true "Plots")
+The plots shown above was generated running this project on Debian Wheezy with an Intel Core i5 4690 Quad core 3.5GHz CPU and nVidia GeForce GTX970 GPU
 
 ## Built with
 * [CUDA 9.1](https://developer.nvidia.com/cuda-toolkit) - The toolkit to write and executing programs on nVidia GPUs
