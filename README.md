@@ -151,19 +151,18 @@ scale <<< blocksPerGrid, threadsPerBlock >>> (gpu_inv_A, gpu_inv_I, dim);
 
 ```
 for(int i=0; i<thread_number; i++){
-			//x and y are used to balance the load between threads.
-			//in this case a thread computes the submatrix of the result.
-			//the submatrix is from the column 'x' to the column 'y' 
-			params[i].x = i*dim/thread_number; //what row we start multiplicating
-			params[i].y = MIN((i+1)*dim/thread_number,dim); //what row we stop multiplicating (must be within the max 'dim' value)
-			//Creation of the threads
-			pthread_create(&threads[i],NULL,thread_mat_mul,(void*)&params[i]);
-		}
-
-		//waits for all threads to exit
-		for (int i=0; i<thread_number; i++) {
- 		   pthread_join(threads[i],NULL);
+	//x and y are used to balance the load between threads.
+	//in this case a thread computes the submatrix of the result.
+	//the submatrix is from the column 'x' to the column 'y' 
+	params[i].x = i*dim/thread_number; //what row we start multiplicating
+	params[i].y = MIN((i+1)*dim/thread_number,dim); //what row we stop multiplicating (must be within the max 'dim' value)
+	//Creation of the thread
+	pthread_create(&threads[i],NULL,thread_mat_mul,(void*)&params[i]);
 }
+
+//waits for all threads to exit
+for (int i=0; i<thread_number; i++)
+	pthread_join(threads[i],NULL);
 ```
 A more detailed explanation of the timing was realized can be found inside the various files.
 
