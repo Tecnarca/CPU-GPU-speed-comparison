@@ -84,6 +84,80 @@ This will show many plots, each one with matrix dimension (only the width is sho
 
 The plots shown above was generated running this project on Debian Wheezy with an Intel Core i5 4690 Quad core 3.5GHz CPU and nVidia GeForce GTX970 GPU
 
+## How times has been measured
+
+We tried to confront different approaches for matrix operations, but because the GPU needs to hold the data in his own RAM, it was not sufficent to measure only the computation time to generate the output matrix, but also the transfer times from the system RAM to the GPU and the copyback (GPU to RAM) times. It was right to emphasize transfer times from CPU to GPU beacuse they produce a remarkable difference in the output times of multiplied and inverted matrices.
+
+We have timed with CUDA events the following instructions in `cuda.cu` and `cublas.cu` :
+
+
+>cuda.cu
+
+
+To copy the matrices A and B from RAM to GPU RAM
+
+```
+status = cudaMemcpy(gpu_inv_A, M, data_size, cudaMemcpyHostToDevice);
+status = cudaMemcpy(gpu_inv_I, D, data_size, cudaMemcpyHostToDevice);
+cudaDeviceSynchronize();
+```
+
+To copy back matrices from GPU RAM to RAM 
+
+```
+status = cudaMemcpy(M, gpu_inv_A, data_size, cudaMemcpyDeviceToHost);
+status = cudaMemcpy(D, gpu_inv_I, data_size, cudaMemcpyDeviceToHost);
+cudaDeviceSynchronize();
+```
+
+
+
+>cublas.cu
+
+
+
+To copy matrices A and B from RAM to GPU RAM
+
+```
+status = cudaMemcpy(gpu_A, A, data_size,cudaMemcpyHostToDevice); //copy gpu_A <-A
+status = cudaMemcpy(gpu_D, D, data_size,cudaMemcpyHostToDevice); //copy gpu_D <-D
+cusolverStatus = cusolverDnSgetrf_bufferSize(cuhandle,dim,dim,gpu_A,dim,&Lwork);
+```
+
+And copy back to GPU RAM to RAM
+
+```
+status = cudaMemcpy (&info_gpu , gpu_info , sizeof(int), cudaMemcpyDeviceToHost );  
+status = cudaMemcpy(C, gpu_D , dim*dim*sizeof(float), cudaMemcpyDeviceToHost);
+cudaDeviceSynchronize();
+```
+Aside from these particular steps for the GPU, every program used exactly the same algorithm for multiplicating and inverting (gauss jordan, implemented in 3 steps: the "upper triangular reduction", "low triangular reduction" and "scaling"), only written using the different approaches, except for CUBLAS, that uses an LU factorization and solves the generic system AxB=I). 
+So, every other timed portion (timed with CHRONO for the CPU and CUDA events for the GPU) issues only the instructions that produces the output. For example, in `cuda.cu` and `multithread.cpp`:
+
+>cuda.cu
+
+```
+for(int i=0;i<dim-1;i++)
+  upperReduction <<< blocksPerGrid, threadsPerBlock >>> (gpu_inv_A, gpu_inv_I, dim, i);
+for(int i=dim-1;i>0;i--)
+  lowerReduction <<< blocksPerGrid, threadsPerBlock >>> (gpu_inv_A, gpu_inv_I, dim, i);
+scale <<< blocksPerGrid, threadsPerBlock >>> (gpu_inv_A, gpu_inv_I, dim);
+```
+
+>multithread.cpp
+
+```
+for(int i=0; i<thread_number; i++){
+	params[i].x = i*dim/thread_number;
+	params[i].y = MIN((i+1)*dim/thread_number,dim);
+	pthread_create(&threads[i],NULL,thread_mat_mul,(void*)&params[i]);
+}
+
+for (int i=0; i<thread_number; i++)
+	pthread_join(threads[i],NULL);
+```
+A more detailed explanation of the timing was realized can be found inside the various files.
+
 ## Built with
 * [CUDA 9.1](https://developer.nvidia.com/cuda-toolkit) - The toolkit to write and executing programs on nVidia GPUs
 * [OpenMP](https://www.openmp.org/) - API to write simple multithread programs
