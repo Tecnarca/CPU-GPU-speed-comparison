@@ -7,7 +7,7 @@
 #include <cstring>
 #include <cmath>
 #define DEBUG 0
-//If DEBUG is setted, will print the used matrices and the times on the stdout
+//If DEBUG is setted,the program will print the used matrices and the times on the stdout
 
 using namespace std;
 
@@ -32,7 +32,7 @@ int main(int argc, char **argv){
     float  beta=0.f;
     int  incx=1, incy =1;
     cudaError_t status; //variable for error handling
-    cudaEvent_t begin, stop; //used to time the functions on the GPU
+    cudaEvent_t begin, stop; //used to time measurement of the functions on the GPU
     cublasStatus_t  stat; //CUBLAS functions status
     cublasHandle_t  handle; //CUBLAS context
     cusolverStatus_t  cusolverStatus;
@@ -50,7 +50,7 @@ int main(int argc, char **argv){
     max_dim = strtol(argv[2], NULL, 10)+1; //'+1' means we will evaluate the "max_dim" value passed as a argument
     step = strtol(argv[3], NULL, 10);
 
-    //for every dim from min_dim to max_dim, with step 'step'
+   	//for each 'dim' from 'min_dim' to 'max_dim', with the step we chosen
     for(dim=min_dim;dim<max_dim;dim+=step){
 
         //Matrix as a sequential array, copied back from "S"
@@ -278,7 +278,7 @@ int main(int argc, char **argv){
             }
         }
 
-        //deallocate things
+        //deallocate 
 
         cudaFree(gpu_A);
         cudaFree(gpu_D);
