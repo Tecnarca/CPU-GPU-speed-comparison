@@ -86,7 +86,7 @@ The plots shown above was generated running this project on Debian Wheezy with a
 
 ## How times has been measured
 
-We tried to confront different approaches for matrix operations, but because the GPU needs to hold the data in his own RAM, it was not sufficent to measure only the computation time to generate the output matrix, but also the trasfering times from the system RAM to the GPU and the copyback. It was right to emphasize transfer times from CPU to GPU beacuse they produce a remarkable difference in the output times of multiplied and inverted matrices.
+We tried to confront different approaches for matrix operations, but because the GPU needs to hold the data in his own RAM, it was not sufficent to measure only the computation time to generate the output matrix, but also the trasfer times from the system RAM to the GPU and the copyback (GPU to RAM) times. It was right to emphasize transfer times from CPU to GPU beacuse they produce a remarkable difference in the output times of multiplied and inverted matrices.
 
 We have timed with CUDA events the following instructions in `cuda.cu` and `cublas.cu` :
 
