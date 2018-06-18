@@ -4,7 +4,7 @@
 #include <cstring>
 #define DEBUG 0
 #define MIN(a, b) (((a) > (b)) ? (b) : (a))
-//If DEBUG is setted, will print the used matrices and the times on the stdout
+//If DEBUG is setted, the program will print the used matrices and the times on the stdout
 
 using namespace std;
 
@@ -16,21 +16,21 @@ extern float** createEmptyMatrix(long);
 extern void saveTimeToFile(long, float, char*);
 extern bool multipliedMatrixIsCorrect(float**, float**, float**, long);
 
-/* For inverting and multiplicating matrices, these functions will be timed */
-/* pThread requires them to have type and parameters be void* */
+/* For the inversion and the multiplication of the matrices, the execution time of these functions will be measured */
+// pThread requires them to have type and parameters be void* 
 void* thread_mat_inv(void*);
 void* thread_mat_mul(void*);
 
 //Global variables because every thread will operate on them
-float **A, **B, **C; //After multiplicating, C=A*B
+float **A, **B, **C; //After the multiplicaton, C=A*B
 float **D, **M; //M=A, D=Identity and after inversion: D = A^-1, M=Identity
 long dim; //dim of the currently used matrices
 int thread_number;
 
 static pthread_barrier_t barrier;
 
-//used to tell the thread from wich column or row he should start inverting/multiplicating
-//and with wich step, passed parameters will be described in the thread creation line
+/*used to tell the thread from wich column or row he should start the invertions or the multiplications
+  and with wich step, passed parameters will be described in the thread creation line */
 struct coord{
 	int x;
 	int y;
@@ -38,9 +38,9 @@ struct coord{
 
 int main(int argc, char **argv){
 
-	long min_dim, max_dim, step; //Used to determine what matrix dimensions we will test
-	chrono::high_resolution_clock::time_point start, finish; //Used to implement the timing
-	chrono::duration<double> elapsed; //Will contain the elapsed time
+	long min_dim, max_dim, step; //Used to determine which matrix dimensions we will test
+	chrono::high_resolution_clock::time_point start, finish; //Used to implement time measurement
+	chrono::duration<double> elapsed; //Used to contain the elapsed time
 	pthread_t* threads; //thread objects array
 	coord* params; //every thread has is own parameters
 
@@ -54,15 +54,15 @@ int main(int argc, char **argv){
 	max_dim = strtol(argv[2], NULL, 10)+1; //'+1' means we will evaluate the "max_dim" value passed as a argument
 	step = strtol(argv[3], NULL, 10);
 
-	//thread number is taken via input
+	//thread number is taken from the input
 	thread_number = strtol(argv[4], NULL, 10);
 	threads = new pthread_t[thread_number];
 	params = new coord[thread_number];
 
-	//for every dim from min_dim to max_dim, with step 'step'
+	//for each 'dim' from 'min_dim' to 'max_dim', with the step we chosen
 	for(dim=min_dim;dim<max_dim;dim+=step){
 
-		//ToDo: parallelizzare anche questa funzione (?)
+		//ToDo:  It could be parallel in the future (?)
 		A = createRandomMatrix(dim, dim, true); // true means "invertible"
 		B = createRandomMatrix(dim, dim, false); // true means "not invertible"
 		C = createEmptyMatrix(dim);
@@ -84,13 +84,13 @@ int main(int argc, char **argv){
 			//x and y are used to balance the load between threads.
 			//in this case a thread computes the submatrix of the result.
 			//the submatrix is from the column 'x' to the column 'y' 
-			params[i].x = i*dim/thread_number; //what row we start multiplicating
-			params[i].y = MIN((i+1)*dim/thread_number,dim); //what row we stop multiplicating (must be within the max 'dim' value)
+			params[i].x = i*dim/thread_number; //which row we start multiplicating
+			params[i].y = MIN((i+1)*dim/thread_number,dim); //which row we stop multiplicating (must be within the max 'dim' value)
 			//Creation of the threads
 			pthread_create(&threads[i],NULL,thread_mat_mul,(void*)&params[i]);
 		}
 
-		//waits for all threads to exit
+		//wait for all the threads to exit
 		for (int i=0; i<thread_number; i++) {
  		   pthread_join(threads[i],NULL);
 		}
@@ -134,12 +134,12 @@ int main(int argc, char **argv){
 		for(int i=0; i<thread_number; i++){
 			//x is used to balance the load between threads. y is unused.
 			//to be balanced, every thread reduces the all the columns of index x*n (until x*n < dim), where n is integer
-			params[i].x = i; //what columns we reduce
+			params[i].x = i; //which columns we reduce
 			//Creation of the threads
 			pthread_create(&threads[i],NULL,thread_mat_inv,(void*)&params[i]);
 		}
 
-		//waits for all threads to exit
+		//waits for all the threads to exit
 		for (int i=0; i<thread_number; i++) {
  		   pthread_join( threads[i],NULL);
 		}
@@ -178,10 +178,10 @@ int main(int argc, char **argv){
 void* thread_mat_mul(void* params) {
 	coord *v = (coord*)params;
 	int c;
-	for(int i=v->x; i<v->y; i++){ //foreach row
-		for(int j=0;j<dim;j++){ //foreach column
+	for(int i=v->x; i<v->y; i++){ //for each row
+		for(int j=0;j<dim;j++){ //for each column
 			c=0;
-			for(int k=0; k<dim; k++) //foreach element
+			for(int k=0; k<dim; k++) //for every element
 				c+= A[i][k]*B[k][j];
 			C[i][j] = c;
 		}
@@ -194,11 +194,11 @@ void* thread_mat_inv(void* params) {
 	double s;
 
 		    //reduce M to upper triangular 
-		    for(int piv=0; piv<dim; piv++){ //foreach row
+		    for(int piv=0; piv<dim; piv++){ //for each row
 		      //required sync accross all threads
 			  //if not reassured, one thread will start overwriting a row currently used from another thread
 			  pthread_barrier_wait(&barrier);
-		      for(int i=piv+1+v->x; i<dim; i+=thread_number){ //foreach column
+		      for(int i=piv+1+v->x; i<dim; i+=thread_number){ //for each column
 		        s = (double)M[i][piv]/M[piv][piv];
 		        for(int j=0;j<dim;j++){ //for every element
 		          D[i][j] -= (float)s*D[piv][j];
@@ -213,7 +213,7 @@ void* thread_mat_inv(void* params) {
 		      //required sync accross all threads
 			  //if not reassured, one thread will start overwriting a row currently used from another thread
 			  pthread_barrier_wait(&barrier);
-		      for(int i=v->x; i<piv; i+=thread_number){ //foreach column
+		      for(int i=v->x; i<piv; i+=thread_number){ //for each column
 		        s = (double)M[i][piv]/M[piv][piv];
 		        for(int j=0;j<dim;j++){ //for every element
 		          D[i][j] -= (float)s*D[piv][j];

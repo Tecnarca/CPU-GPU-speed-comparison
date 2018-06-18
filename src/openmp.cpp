@@ -3,7 +3,7 @@
 #include <cstring>
 #include <omp.h>
 #define DEBUG 0
-//If DEBUG is setted, will print the used matrices and the times on the stdout
+//If DEBUG is setted, the program will print the used matrices and the times on the stdout
 
 using namespace std;
 
@@ -15,18 +15,18 @@ extern void print_matrix(float**, long, char*);
 extern void saveTimeToFile(long, float, char*);
 extern bool multipliedMatrixIsCorrect(float**, float**, float**, long);
 
-/* For inverting and multiplicating matrices, these functions will be timed */
+/* For the inversion and the multiplication of the matrices, the execution time of these functions will be measured */
 void mat_inv(float**, float**, long);
 void mat_mul(float**, float**, float**, long);
 
 int main(int argc, char **argv){
   long min_dim, max_dim, step, dim; //Used to determine what matrix dimensions we will test
-  chrono::high_resolution_clock::time_point start, finish; //Used to implement the timing
+  chrono::high_resolution_clock::time_point start, finish; //Used to implement time measurement
   chrono::duration<double> elapsed; //Will contain the elapsed time
-  float **A, **B, **C; //After multiplicating, C=A*B
+  float **A, **B, **C; //After moltiplication, C=A*B
   float **D, **M; //M=A, D=Identity and after inversion: D = A^-1, M=Identity
   
-  omp_set_num_threads(4); //Set the number of threads to 4, you might want to change this
+  omp_set_num_threads(4); //Set the number of threads to 4, if you want you can change this
 
   // Print the usage command if too few parameters were passed
   if(argc != 4){
@@ -39,7 +39,7 @@ int main(int argc, char **argv){
   step = strtol(argv[3], NULL, 10);
 
 
-  //for every dim from min_dim to max_dim, with step 'step'
+  //for each 'dim' from 'min_dim' to 'max_dim', with the step we chosen 
   for(dim=min_dim;dim<max_dim;dim+=step){
 
 		A = createRandomMatrix(dim, dim, true); // true means "invertible"
@@ -66,7 +66,7 @@ int main(int argc, char **argv){
 
 		//----------------------CRITICAL CODE----------------------
 
-    mat_mul(A,B,C,dim); //Moltiplico C = A*B
+    mat_mul(A,B,C,dim); //Multiply C = A * B
 
 		//----------------------CRITICAL CODE----------------------
 
@@ -94,7 +94,7 @@ int main(int argc, char **argv){
 
 		//----------------------CRITICAL CODE----------------------
 		
-		mat_inv(M,D,dim); //Inverto M=A e metto il risultato in D
+		mat_inv(M,D,dim); //Invert M = A and put the result in D
 
 		//----------------------CRITICAL CODE----------------------
 
@@ -134,9 +134,9 @@ void mat_inv(float **M, float **D, long dim){
   int i,j;
 
     //reduce M to upper triangular 
-    for(int piv=0; piv<dim; piv++){ //foreach row
+    for(int piv=0; piv<dim; piv++){ //for each row
       #pragma omp parallel for private(i,j,s)
-      for(int i=piv+1; i<dim; i++){ //foreach column
+      for(int i=piv+1; i<dim; i++){ //for each column
         s = (double)M[i][piv]/M[piv][piv];
         for(int j=0;j<dim;j++){ //for every element
           D[i][j] -= (float)s*D[piv][j];
@@ -149,7 +149,7 @@ void mat_inv(float **M, float **D, long dim){
     //the scaling operation is done within the first for, no need for another one
     for(int piv=dim-1; piv>=0; piv--){ //foreach row
       #pragma omp parallel for private(i,j,s)
-      for(int i=0; i<piv; i++){ //foreach column
+      for(int i=0; i<piv; i++){ //for each column
         s = (double)M[i][piv]/M[piv][piv];
         for(int j=0;j<dim;j++){ //for every element
           D[i][j] -= (float)s*D[piv][j];

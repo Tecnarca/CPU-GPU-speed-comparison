@@ -4,7 +4,7 @@
 #include <cstring>
 #include <cmath>
 #define DEBUG 0
-//If DEBUG is setted, will print the used matrices and the times on the stdout
+//If DEBUG is setted, the program will print the used matrices and the times on the stdout
 
 using namespace std;
 
@@ -20,7 +20,7 @@ using namespace std;
     if(i<n && j<n) //to ensure we are within the matrix boundaries
         if(i>piv){ // limits operation to rows below the pivot point
             p = A[i*n+piv]/A[piv*n+piv];
-            I[i*n+j] -= I[piv*n+j]*p;  // apply for every row member
+            I[i*n+j] -= I[piv*n+j]*p;  // apply for each row member
             if(j>=piv){ //limits to row members to the right of the pivot
                 A[i*n+j] -= A[piv*n+j]*p;  // apply only to members right of pivot
             }
@@ -50,9 +50,11 @@ using namespace std;
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int col = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if(row<h && col<h) //to ensure we are withing the matrix boundaries
+    if(row<h && col<h)//to ensure we are withing not the matrix boundaries
+    {
         I[row*h+col]  /= A[row*(h+1)];
         A[row*h+col] /= A[row*(h+1)];
+    }
 }
 
 __global__ void matrixMultiplication(float* A, float* B, float* C, int n) {
@@ -64,7 +66,7 @@ __global__ void matrixMultiplication(float* A, float* B, float* C, int n) {
 
     // each thread computes one element of the block sub-matrix (and therefore one non-overlapping sub-matrix of C)
 
-    if (row<n && col<n) { //to ensure we are withing the matrix boundaries
+    if (row<n && col<n) { //to ensure we are not withing the matrix boundaries
         for (int i = 0; i < n; i++) {
             c += A[row*n+i] * B[i*n+col];
         }
@@ -85,16 +87,16 @@ extern bool multipliedMatrixCudaIsCorrect(float*, float*, float*, long);
 
 int main(int argc, char **argv){
 
-    long min_dim, max_dim, step, dim, data_size; //Used to determine what matrix dimensions we will test
-    float *A, *B, *C; //After multiplicating, C=A*B
+    long min_dim, max_dim, step, dim, data_size; //Used to determine which matrix dimensions we will test
+    float *A, *B, *C; //After moltiplication , C=A*B
     float *D, *M; //M=A, D=Identity and after inversion: D = A^-1, M=Identity
     float *gpu_A, *gpu_B, *gpu_C; //GPU Matrices
     float *gpu_inv_A, *gpu_inv_I;
     float time; //Will contain elapsed time returned by CUDA events, in milliseconds
-    chrono::high_resolution_clock::time_point start, finish; //Used to implement the timing
-    chrono::duration<double> elapsed1, elapsed2; //Will contain the elapsed time  
+    chrono::high_resolution_clock::time_point start, finish; //Used to implement time measurement
+    chrono::duration<double> elapsed1, elapsed2; //Used to contain the elapsed time  
     cudaError_t status; //variable for error handling
-    cudaEvent_t begin, stop; //used to time the functions on the GPU
+    cudaEvent_t begin, stop; //used to the time measurement of the functions on the GPU
     cudaEventCreate(&begin); //initialize objects
     cudaEventCreate(&stop);
 
@@ -108,7 +110,7 @@ int main(int argc, char **argv){
     max_dim = strtol(argv[2], NULL, 10)+1; //'+1' means we will evaluate the "max_dim" value passed as a argument
     step = strtol(argv[3], NULL, 10);
 
-    //for every dim from min_dim to max_dim, with step 'step'
+    //for each 'dim' from 'min_dim' to 'max_dim', with the step we chosen 
     for(dim=min_dim;dim<max_dim;dim+=step){
 
         //Matrices are created and used as arrays
@@ -178,7 +180,7 @@ int main(int argc, char **argv){
         cudaEventRecord(begin, 0); //begin "recording" operations on GPU
         
         //----------------------CUDA PARALLEL CODE----------------------
-        //load and execute the kernel for multiplication into the GPU
+        //load and execute the kernel to multiplication into the GPU
 
         matrixMultiplication <<< blocksPerGrid, threadsPerBlock >>> (gpu_A, gpu_B, gpu_C, dim);
 
@@ -337,7 +339,7 @@ int main(int argc, char **argv){
             }
         }
 
-        //deallocate things
+        //deallocate 
         cudaFree(gpu_inv_A);
         cudaFree(gpu_inv_I);
         free(A);
