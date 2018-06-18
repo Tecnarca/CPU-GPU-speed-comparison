@@ -15,7 +15,7 @@ using namespace std;
 
 /* This file contains all the utility functions 
 It could be well written, but it's not 
-For example, we could have used templates */
+For example, we could have used templates  */
 
 //The following function generates a random Matrix
 float** createRandomMatrix(long height, long width, bool invertible){ 
