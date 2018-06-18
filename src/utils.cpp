@@ -5,17 +5,19 @@
 #include <fstream>
 #define R_MAX 10
 #define eps 0.1f
-/* R_MAX/2 is the biggest number that will appear in the random matrices (outside the diagonal) */
-/* a small R_MAX improves numerical stability when inverting a matrix */
-/* eps is the maximum error allowed when checking for the correctness of the computed matrices */
+/* R_MAX/2 is the biggest number that will appear in the random matrices
+(outside the diagonal) 
+a small R_MAX improves numerical stability when inverting a matrix */
+/* eps is the maximum error allowed when checking for 
+the correctness of the computed matrices */
 
 using namespace std;
 
-/* This file contains all the utility functions */
-/* It could be well written, but it's not */
-/* For example, we could have used templates */
-/* We will write this better in the future */
+/* This file contains all the utility functions 
+It could be well written, but it's not 
+For example, we could have used templates */
 
+//The following function generates a random Matrix
 float** createRandomMatrix(long height, long width, bool invertible){ 
       float** m = 0;
       int x, c;
@@ -29,14 +31,16 @@ float** createRandomMatrix(long height, long width, bool invertible){
             m[h] = new float[width];
 
             if(invertible){ 
-            	//diagonally dominant == surely invertible
+            	//if diagonally dominant the matrix is invertible
             	for (int w = 0; w < width; w++)
             		if(w!=h){
             			x = rand()%R_MAX - R_MAX/2;
             			c+=abs(x);
             			m[h][w] = x;	
             		}
-            	// Condition to be diagonally dominant: for each h, abs(m[h][h]) > c, where c = (sum for every w!=h, w<dim, w++: abs(m[h][w]))
+            	/*Condition to be diagonally dominant:
+                for each h, abs(m[h][h]) > c,
+                where c = (sum for every w!=h, w<dim, w++: abs(m[h][w])) */
             	m[h][h] = (float)(rand()%(R_MAX/10) + c + 1); 
 
             } else
@@ -47,7 +51,7 @@ float** createRandomMatrix(long height, long width, bool invertible){
       return m;
 }
 
-//This creates the standard idendity matrix
+//This Function creates the standard idendity matrix
 float** createIdentityMatrix(long dim){
       float** m = 0;
       m = new float*[dim];
@@ -62,7 +66,7 @@ float** createIdentityMatrix(long dim){
       return m;
 }
 
-//matrix full of 0
+//This Function creates a matrix full of 0
 float** createEmptyMatrix(long dim){
       float** m = 0;
       m = new float*[dim];
@@ -76,8 +80,9 @@ float** createEmptyMatrix(long dim){
       return m;
 }
 
-//Same function as before, but they create arrays instead of matrices.
-//The created arrays are row-wise concatenated matrices, with the same proprieties as before
+/*Same function as before, but they create arrays instead of matrices.
+  The created arrays are row-wise concatenated matrices, 
+  with the same proprieties as before */
 //Note: if m has 'height' rows, m[h][w] = m[h*height+w]
 float* createRandomMatrixArray(long height, long width, bool invertible){
       float* m = 0;
@@ -91,7 +96,7 @@ float* createRandomMatrixArray(long height, long width, bool invertible){
       for (int h = 0, c = 0; h < height; h++, c=0){
 
             if(invertible){ 
-              //diagonally dominant == surely invertible
+              //if diagonally dominant the matrix is invertible
               for (int w = 0; w < width; w++)
                 if(w!=h){
                   x = rand()%R_MAX - R_MAX/2;
@@ -132,15 +137,15 @@ float* createEmptyMatrixArray(long dim){
       return m;
 }
 
-//Saves the dim (x) and the recorded time (y) to a file (*filename) in the format:
-// x y
+/*The following function saves the dim (x) and the recorded time (y)
+  to a file (*filename) in the format: x y */
 void saveTimeToFile(long x, float y, char* filename){
   ofstream file;
   file.open(filename, ios_base::app);
   file << x << " " << y << endl;
   file.close();
 }
-
+//Obviously print the matrix 
 void print_matrix(float** A, long n, char* s){
   cout << "\n***** MATRICE " << s << "******\n\n";
   for(int i=0;i<n;i++){
@@ -150,7 +155,7 @@ void print_matrix(float** A, long n, char* s){
   }
   cout << "*********************\n\n"; 
 }
-
+//Print the arrais as a matrix
 void print_array_as_matrix(float* A, long n, char* s){
   cout << "\n***** MATRICE " << s << "******\n\n";
   for(int i=0;i<n;i++){
@@ -160,7 +165,7 @@ void print_array_as_matrix(float* A, long n, char* s){
   }
   cout << "*********************\n\n"; 
 }
-
+//Print the arrais as a Reverse Matrix
 void print_array_as_matrixT(float* A, long n, char* s){
   cout << "\n***** MATRICE " << s << "******\n\n";
   for(int i=0;i<n;i++){
@@ -170,7 +175,7 @@ void print_array_as_matrixT(float* A, long n, char* s){
   }
   cout << "*********************\n\n"; 
 }
-
+//Check if Multiplied Matrix is correct 
 bool multipliedMatrixIsCorrect(float **A, float **B, float **C, long dim){
   
   float** check = 0;
@@ -194,7 +199,7 @@ bool multipliedMatrixIsCorrect(float **A, float **B, float **C, long dim){
   return true;
 
 }
-
+//Check if the multiplied Matrix in the Cuda language is correct
 bool multipliedMatrixCudaIsCorrect(float *A, float *B, float *C, long dim){
   
   float* check = 0;
@@ -217,7 +222,8 @@ bool multipliedMatrixCudaIsCorrect(float *A, float *B, float *C, long dim){
   return true;
 
 }
-
+/*Check if the multiplied matrix calculated with the libraries
+in the Cuda language is correct */
 bool multipliedMatrixCublasIsCorrect(float *A, float *B, float *C, long dim){
   
   float* check = 0;
