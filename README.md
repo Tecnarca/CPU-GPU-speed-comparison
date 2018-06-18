@@ -84,6 +84,51 @@ This will show many plots, each one with matrix dimension (only the width is sho
 
 The plots shown above was generated running this project on Debian Wheezy with an Intel Core i5 4690 Quad core 3.5GHz CPU and nVidia GeForce GTX970 GPU
 
+##How timing functions works
+
+In the graph at the top of the page you can see that we decide to store only inversion and multiplication times of matrix for single-thread CPU and multi-thread CPU because it wasn't relevant, in our opinion, to store CPU storage and transfer times considering that each CPU has its specific speed to make that operations.
+
+Instead for operations made with GPU (using CUDA and CUBLAS) it was more important to underline storage and transfer time from CPU to GPU, to do this we use:
+
+>cuda.cu
+
+To copy the matrices A and B from RAM to GPU RAM
+
+```
+status = cudaMemcpy(gpu_inv_A, M, data_size, cudaMemcpyHostToDevice);
+status = cudaMemcpy(gpu_inv_I, D, data_size, cudaMemcpyHostToDevice);
+cudaDeviceSynchronize();
+
+```
+
+To copy back matrices from GPU RAM to RAM 
+
+```
+status = cudaMemcpy(M, gpu_inv_A, data_size, cudaMemcpyDeviceToHost);
+status = cudaMemcpy(D, gpu_inv_I, data_size, cudaMemcpyDeviceToHost);
+cudaDeviceSynchronize();
+```
+
+>cublas.cu
+
+To copy matrices A and B from RAM to GPU RAM
+
+```
+status = cudaMemcpy(gpu_A, A, data_size,cudaMemcpyHostToDevice); //copy gpu_A <-A
+status = cudaMemcpy(gpu_D, D, data_size,cudaMemcpyHostToDevice); //copy gpu_D <-D
+cusolverStatus = cusolverDnSgetrf_bufferSize(cuhandle,dim,dim,gpu_A,dim,&Lwork); //compute  buffer  size  and  prep.memory
+```
+
+And copy back to GPU RAM to RAM
+
+```
+status = cudaMemcpy (&info_gpu , gpu_info , sizeof(int), cudaMemcpyDeviceToHost );
+        
+status = cudaMemcpy(C, gpu_D , dim*dim*sizeof(float), cudaMemcpyDeviceToHost);
+cudaDeviceSynchronize();
+```
+
+
 ## Built with
 * [CUDA 9.1](https://developer.nvidia.com/cuda-toolkit) - The toolkit to write and executing programs on nVidia GPUs
 * [OpenMP](https://www.openmp.org/) - API to write simple multithread programs
