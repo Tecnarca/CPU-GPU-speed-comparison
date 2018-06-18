@@ -84,11 +84,11 @@ This will show many plots, each one with matrix dimension (only the width is sho
 
 The plots shown above was generated running this project on Debian Wheezy with an Intel Core i5 4690 Quad core 3.5GHz CPU and nVidia GeForce GTX970 GPU
 
-## How CPU to GPU transfer times has been saved
+## How times has been measured
 
-It was right to emphasize transfer times from CPU to GPU beacuse they produce a remarkable difference in the output times of multiplied and inverted matrices.
+We tried to confront different approaches for matrix operations, but because the GPU needs to hold the data in his own RAM, it was not sufficent to measure only the computation time to generate the output matrix, but also the trasfering times from the system RAM to the GPU and the copyback. It was right to emphasize transfer times from CPU to GPU beacuse they produce a remarkable difference in the output times of multiplied and inverted matrices.
 
-To do this we use following functions in `cuda.cu` and `cublas.cu` :
+We have timed with CUDA events the following instructions in `cuda.cu` and `cublas.cu` :
 
 
 >cuda.cu
@@ -131,7 +131,41 @@ status = cudaMemcpy (&info_gpu , gpu_info , sizeof(int), cudaMemcpyDeviceToHost 
 status = cudaMemcpy(C, gpu_D , dim*dim*sizeof(float), cudaMemcpyDeviceToHost);
 cudaDeviceSynchronize();
 ```
+Aside from these particular steps for the GPU, every program used exactly the same algorithm for multiplicating and inverting (gauss jordan, implemented in 3 steps: the "upper triangular reduction", "low triangular reduction" and "scaling"), only written using the different approaches, except for CUBLAS, that uses an LU factorization and solves the generic system AxB=I). 
+So, every other timed portion (timed with CHRONO for the CPU and CUDA events for the GPU) issues only the instructions that produces the output. For example, in `cuda.cu` and `multithread.cpp`:
 
+>cuda.cu
+
+```
+for(int i=0;i<dim-1;i++){ //reduces matrix to upper triangular
+  upperReduction <<< blocksPerGrid, threadsPerBlock >>> (gpu_inv_A, gpu_inv_I, dim, i);
+}
+for(int i=dim-1;i>0;i--){ //reduces matrix to lower triangular
+  lowerReduction <<< blocksPerGrid, threadsPerBlock >>> (gpu_inv_A, gpu_inv_I, dim, i);
+}
+//here matrix A is diagonal and will be scaled down to the identity
+scale <<< blocksPerGrid, threadsPerBlock >>> (gpu_inv_A, gpu_inv_I, dim);
+```
+
+>multithread.cpp
+
+```
+for(int i=0; i<thread_number; i++){
+			//x and y are used to balance the load between threads.
+			//in this case a thread computes the submatrix of the result.
+			//the submatrix is from the column 'x' to the column 'y' 
+			params[i].x = i*dim/thread_number; //what row we start multiplicating
+			params[i].y = MIN((i+1)*dim/thread_number,dim); //what row we stop multiplicating (must be within the max 'dim' value)
+			//Creation of the threads
+			pthread_create(&threads[i],NULL,thread_mat_mul,(void*)&params[i]);
+		}
+
+		//waits for all threads to exit
+		for (int i=0; i<thread_number; i++) {
+ 		   pthread_join(threads[i],NULL);
+}
+```
+A more detailed explanation of the timing was realized can be found inside the various files.
 
 ## Built with
 * [CUDA 9.1](https://developer.nvidia.com/cuda-toolkit) - The toolkit to write and executing programs on nVidia GPUs
