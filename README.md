@@ -23,7 +23,7 @@ All the commands to compile the programs are wirtten in:
 
 >compiler.sh
 
-Further instructions on how the programs were compiled, can be found inside that file. To run it, execute the followin in a terminal:
+Further instructions on how the programs were compiled, can be found inside that file. To run it, execute the following in a terminal:
 
 ```
 chmod +x compiler.sh
